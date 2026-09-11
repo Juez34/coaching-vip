@@ -1,13 +1,17 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { Check, Flame, Play, ChevronRight, Dumbbell, Calendar, User, Loader2 } from "lucide-react";
-import Link from "next/link";
+import { Check, Flame, Play, ChevronRight, Dumbbell, Calendar, User, Loader2, Search, UserCheck } from "lucide-react";
 
 export default function StudentWorkout() {
   const [workout, setWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
   const [completedSets, setCompletedSets] = useState({});
+
+  // Recherche de coach par l'élève
+  const [coachQuery, setCoachQuery] = useState("");
+  const [coaches, setCoaches] = useState([]);
+  const [showCoachSearch, setShowCoachSearch] = useState(false);
 
   useEffect(() => {
     fetchWorkoutData();
@@ -47,6 +51,36 @@ export default function StudentWorkout() {
     }
   };
 
+  const searchCoach = async (query) => {
+    setCoachQuery(query);
+    if (query.length < 2) return setCoaches([]);
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("role", "coach")
+      .ilike("id", `%${query}%`);
+
+    setCoaches(data || []);
+  };
+
+  const selectCoach = async (coachId) => {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) return alert("Connecte-toi pour enregistrer ton coach.");
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ coach_id: coachId })
+      .eq("id", user.user.id);
+
+    if (error) {
+      alert("Erreur lors de la sélection du coach.");
+    } else {
+      alert("Ton coach a été enregistré !");
+      window.location.reload();
+    }
+  };
+
   const toggleSet = (exerciseId, setIndex) => {
     const key = `${exerciseId}-${setIndex}`;
     setCompletedSets((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -81,14 +115,53 @@ export default function StudentWorkout() {
 
   if (!workout) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 flex flex-col items-center justify-center text-center">
+      <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 flex flex-col items-center justify-center text-center max-w-md mx-auto">
         <div className="w-16 h-16 bg-amber-400/10 border border-amber-400/20 rounded-full flex items-center justify-center mb-4">
           <Dumbbell className="w-8 h-8 text-amber-400" />
         </div>
         <h1 className="text-xl font-bold mb-2">Aucun programme assigné</h1>
-        <p className="text-sm text-slate-400 max-w-xs">
-          Ton coach n'a pas encore publié de séance pour ton profil. Reviens très vite !
+        <p className="text-sm text-slate-400 max-w-xs mb-6">
+          Ton coach n'a pas encore publié de séance pour ton profil, ou tu n'as pas encore sélectionné ton coach.
         </p>
+
+        {/* Bouton pour rechercher son coach */}
+        <button
+          onClick={() => setShowCoachSearch(!showCoachSearch)}
+          className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 transition-all mb-6"
+        >
+          <UserCheck className="w-4 h-4" />
+          <span>Trouver mon Coach</span>
+        </button>
+
+        {/* Modal/Zone de recherche de coach */}
+        {showCoachSearch && (
+          <div className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 text-left">
+            <label className="block text-xs font-bold uppercase text-slate-400">Rechercher ton coach (ID / Email)</label>
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Tape le nom ou l'ID..."
+                value={coachQuery}
+                onChange={(e) => searchCoach(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-amber-400"
+              />
+            </div>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {coaches.map((c) => (
+                <div key={c.id} className="flex justify-between items-center p-2 bg-slate-950 rounded-lg border border-slate-800">
+                  <span className="text-xs font-mono text-slate-300 truncate max-w-[180px]">{c.id}</span>
+                  <button
+                    onClick={() => selectCoach(c.id)}
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-md"
+                  >
+                    Sélectionner
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -191,32 +264,3 @@ export default function StudentWorkout() {
     </div>
   );
 }
-// Recherche de coach par l'élève
-const [coachQuery, setCoachQuery] = useState("");
-const [coaches, setCoaches] = useState([]);
-
-const searchCoach = async (query) => {
-  setCoachQuery(query);
-  if (query.length < 2) return setCoaches([]);
-
-  const { data } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("role", "coach")
-    .ilike("id", `%${query}%`);
-
-  setCoaches(data || []);
-};
-
-const selectCoach = async (coachId) => {
-  const { data: user } = await supabase.auth.getUser();
-  if (!user.user) return;
-
-  await supabase
-    .from("profiles")
-    .update({ coach_id: coachId })
-    .eq("id", user.user.id);
-
-  alert("Ton coach a été enregistré !");
-  window.location.reload();
-};
