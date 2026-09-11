@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { Users, Shield, Dumbbell, Activity, Search, ShieldCheck, UserCheck } from "lucide-react";
+import { Users, ShieldCheck, UserCheck, Dumbbell, Search, LogOut, Loader2 } from "lucide-react";
 
 export default function AdminDashboard() {
   const [profiles, setProfiles] = useState([]);
@@ -10,21 +10,40 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    fetchAdminData();
+    checkAdminAndFetchData();
   }, []);
 
-  const fetchAdminData = async () => {
+  const checkAdminAndFetchData = async () => {
     try {
       setLoading(true);
 
-      // 1. Récupération des profils
+      // 1. Vérification de la session et du rôle Admin
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || profile?.role !== "admin") {
+        alert("Accès refusé. Espace réservé aux administrateurs.");
+        window.location.href = "/";
+        return;
+      }
+
+      // 2. Récupération globale des profils
       const { data: usersData, error: usersError } = await supabase
         .from("profiles")
         .select("*");
 
       if (usersError) throw usersError;
 
-      // 2. Compte du nombre de programmes
+      // 3. Compte du nombre de programmes
       const { count: programsCount } = await supabase
         .from("programs")
         .select("*", { count: "exact", head: true });
@@ -43,10 +62,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
+
   const filteredProfiles = profiles.filter((profile) =>
     profile.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     profile.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 max-w-6xl mx-auto pb-16">
@@ -62,6 +94,15 @@ export default function AdminDashboard() {
             Supervise l'ensemble des comptes, coaches, élèves et programmes actifs.
           </p>
         </div>
+
+        <button
+          onClick={handleLogout}
+          className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors"
+          title="Déconnexion"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Déconnexion</span>
+        </button>
       </header>
 
       {/* Cartes Métriques */}
@@ -115,9 +156,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {loading ? (
-          <p className="text-xs text-slate-500 text-center py-8">Chargement des données...</p>
-        ) : filteredProfiles.length === 0 ? (
+        {filteredProfiles.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-8">Aucun profil trouvé.</p>
         ) : (
           <div className="space-y-3">
