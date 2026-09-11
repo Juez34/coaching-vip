@@ -11,9 +11,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const redirectUser = (userRole) => {
-    if (userRole === "admin") window.location.href = "/admin";
-    else if (userRole === "coach") window.location.href = "/coach";
-    else window.location.href = "/client";
+    if (userRole === "admin") window.location.assign("/admin");
+    else if (userRole === "coach") window.location.assign("/coach");
+    else window.location.assign("/client");
   };
 
   const handleAuth = async (e) => {
@@ -27,7 +27,6 @@ export default function Login() {
         if (error) throw error;
 
         if (data.user) {
-          // Création du profil associé
           const { error: profileError } = await supabase.from("profiles").upsert([
             {
               id: data.user.id,
@@ -44,20 +43,17 @@ export default function Login() {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Récupération du rôle
-        const { data: profile, error: profileError } = await supabase
+        // On récupère le profil
+        const { data: profile } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", data.user.id)
-          .single();
+          .maybeSingle();
 
-        // Si le profil n'existe pas encore dans la table profiles, on le crée par défaut en 'client'
-        if (profileError || !profile) {
-          await supabase.from("profiles").insert([{ id: data.user.id, role: "client" }]);
-          redirectUser("client");
-        } else {
-          redirectUser(profile.role);
-        }
+        const userRole = profile?.role || "client";
+        
+        // Redirection directe vers le bon espace
+        redirectUser(userRole);
       }
     } catch (err) {
       alert(err.message || "Erreur d'authentification");
@@ -114,32 +110,26 @@ export default function Login() {
 
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Email</label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
-              <input
-                type="email"
-                placeholder="exemple@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-amber-400"
-                required
-              />
-            </div>
+            <input
+              type="email"
+              placeholder="exemple@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3 text-sm text-white focus:outline-none focus:border-amber-400"
+              required
+            />
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Mot de passe</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-amber-400"
-                required
-              />
-            </div>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3 text-sm text-white focus:outline-none focus:border-amber-400"
+              required
+            />
           </div>
 
           <button
