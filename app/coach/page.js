@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { Users, Dumbbell, TrendingUp, Plus, Search, ChevronRight, CheckCircle2, Clock } from "lucide-react";
+import Link from "next/link";
 
 export default function CoachDashboard() {
   const [activeTab, setActiveTab] = useState("clients");
