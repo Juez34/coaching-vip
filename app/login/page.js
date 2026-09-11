@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { Dumbbell, ArrowRight, Lock, Mail, ShieldCheck } from "lucide-react";
+import { Dumbbell, ArrowRight, Lock, Mail } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -10,50 +10,60 @@ export default function Login() {
   const [role, setRole] = useState("client");
   const [loading, setLoading] = useState(false);
 
+  const redirectUser = (userRole) => {
+    if (userRole === "admin") window.location.href = "/admin";
+    else if (userRole === "coach") window.location.href = "/coach";
+    else window.location.href = "/client";
+  };
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       if (isSignUp) {
+        // INSCRIPTION
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
 
         if (data.user) {
-          await supabase.from("profiles").insert([
+          // Création du profil associé
+          const { error: profileError } = await supabase.from("profiles").upsert([
             {
               id: data.user.id,
               role: role,
             },
           ]);
+          if (profileError) console.error("Erreur profil:", profileError);
         }
 
-        alert("Compte créé avec succès !");
-        redirectUser(role);
+        alert("Compte créé avec succès ! Tu peux maintenant te connecter.");
+        setIsSignUp(false);
       } else {
+        // CONNEXION
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Récupérer le rôle de l'utilisateur connecté
-        const { data: profile } = await supabase
+        // Récupération du rôle
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", data.user.id)
           .single();
 
-        redirectUser(profile?.role || "client");
+        // Si le profil n'existe pas encore dans la table profiles, on le crée par défaut en 'client'
+        if (profileError || !profile) {
+          await supabase.from("profiles").insert([{ id: data.user.id, role: "client" }]);
+          redirectUser("client");
+        } else {
+          redirectUser(profile.role);
+        }
       }
     } catch (err) {
       alert(err.message || "Erreur d'authentification");
     } finally {
       setLoading(false);
     }
-  };
-
-  const redirectUser = (userRole) => {
-    if (userRole === "admin") window.location.href = "/admin";
-    else if (userRole === "coach") window.location.href = "/coach";
-    else window.location.href = "/";
   };
 
   return (
