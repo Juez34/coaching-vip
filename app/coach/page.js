@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { Users, Dumbbell, TrendingUp, Plus, Search, Check, UserPlus, Loader2 } from "lucide-react";
+import { Users, Dumbbell, TrendingUp, Plus, Search, Check, UserPlus, Loader2, LogOut } from "lucide-react";
 import Link from "next/link";
 
 export default function CoachDashboard() {
@@ -10,6 +10,11 @@ export default function CoachDashboard() {
   const [searchResults, setSearchResults] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
 
   // Recherche dynamique des élèves par email/nom
   const handleSearchClient = async (query) => {
@@ -24,7 +29,7 @@ export default function CoachDashboard() {
       .from("profiles")
       .select("id, role")
       .eq("role", "client")
-      .ilike("id", `%${query}%`); // Recherche par identifiant/email
+      .ilike("id", `%${query}%`);
 
     if (!error) setSearchResults(data || []);
     setLoadingSearch(false);
@@ -51,12 +56,13 @@ export default function CoachDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 max-w-6xl mx-auto pb-16">
-      <header className="flex justify-between items-center mb-8">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-black text-white tracking-tight">Tableau de bord Coach</h1>
           <p className="text-sm text-slate-400">Gère tes élèves et leur suivi.</p>
         </div>
-        <div className="flex gap-3">
+        
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 border border-slate-700 transition-all text-sm"
@@ -64,6 +70,7 @@ export default function CoachDashboard() {
             <UserPlus className="w-4 h-4 text-amber-400" />
             <span>Ajouter un Élève</span>
           </button>
+          
           <Link
             href="/coach/new-program"
             className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all text-sm"
@@ -71,6 +78,14 @@ export default function CoachDashboard() {
             <Plus className="w-4 h-4" />
             <span>Créer un Programme</span>
           </Link>
+
+          <button
+            onClick={handleLogout}
+            className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-slate-800 p-2.5 rounded-xl border border-slate-800 flex items-center gap-1.5 transition-colors"
+            title="Déconnexion"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </header>
 
