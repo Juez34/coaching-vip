@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../lib/supabase";
 import { Check, Flame, Play, ChevronRight, Dumbbell, Calendar, User, Loader2, Search, UserCheck } from "lucide-react";
 
 export default function StudentWorkout() {
@@ -124,7 +124,6 @@ export default function StudentWorkout() {
           Ton coach n'a pas encore publié de séance pour ton profil, ou tu n'as pas encore sélectionné ton coach.
         </p>
 
-        {/* Bouton pour rechercher son coach */}
         <button
           onClick={() => setShowCoachSearch(!showCoachSearch)}
           className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 transition-all mb-6"
@@ -133,7 +132,6 @@ export default function StudentWorkout() {
           <span>Trouver mon Coach</span>
         </button>
 
-        {/* Modal/Zone de recherche de coach */}
         {showCoachSearch && (
           <div className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 text-left">
             <label className="block text-xs font-bold uppercase text-slate-400">Rechercher ton coach (ID / Email)</label>
