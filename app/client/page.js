@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { Check, Flame, Play, ChevronRight, Dumbbell, Calendar, User, Loader2, Search, UserCheck } from "lucide-react";
+import { Check, Flame, Play, ChevronRight, Dumbbell, Calendar, User, Loader2, Search, UserCheck, LogOut } from "lucide-react";
 
 export default function StudentWorkout() {
   const [workout, setWorkout] = useState(null);
@@ -46,9 +46,14 @@ export default function StudentWorkout() {
       }
     } catch (err) {
       console.error("Erreur de chargement:", err);
-    } finally {
+    } fontally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   };
 
   const searchCoach = async (query) => {
@@ -116,6 +121,16 @@ export default function StudentWorkout() {
   if (!workout) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 flex flex-col items-center justify-center text-center max-w-md mx-auto">
+        <div className="w-full flex justify-end mb-4">
+          <button
+            onClick={handleLogout}
+            className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 flex items-center gap-1.5 transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Déconnexion</span>
+          </button>
+        </div>
+
         <div className="w-16 h-16 bg-amber-400/10 border border-amber-400/20 rounded-full flex items-center justify-center mb-4">
           <Dumbbell className="w-8 h-8 text-amber-400" />
         </div>
@@ -171,9 +186,18 @@ export default function StudentWorkout() {
           <span className="text-[11px] font-extrabold tracking-widest text-amber-400 uppercase bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20 shadow-sm">
             COACHING VIP
           </span>
-          <div className="flex items-center gap-1.5 text-slate-400 text-xs font-medium bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700/50">
-            <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
-            <span>En direct</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-slate-400 text-xs font-medium bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700/50">
+              <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500" />
+              <span>En direct</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-800/80 p-1.5 rounded-md border border-slate-700/50 transition-colors"
+              title="Déconnexion"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
         <h1 className="text-2xl font-black text-white tracking-tight">{workout.title}</h1>
