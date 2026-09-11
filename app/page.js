@@ -191,3 +191,32 @@ export default function StudentWorkout() {
     </div>
   );
 }
+// Recherche de coach par l'élève
+const [coachQuery, setCoachQuery] = useState("");
+const [coaches, setCoaches] = useState([]);
+
+const searchCoach = async (query) => {
+  setCoachQuery(query);
+  if (query.length < 2) return setCoaches([]);
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("role", "coach")
+    .ilike("id", `%${query}%`);
+
+  setCoaches(data || []);
+};
+
+const selectCoach = async (coachId) => {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) return;
+
+  await supabase
+    .from("profiles")
+    .update({ coach_id: coachId })
+    .eq("id", user.user.id);
+
+  alert("Ton coach a été enregistré !");
+  window.location.reload();
+};
