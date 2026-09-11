@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
-import { Users, Dumbbell, TrendingUp, Plus, Search, ChevronRight, CheckCircle2, Clock } from "lucide-react";
-
+import { Users, Dumbbell, TrendingUp, Plus, ChevronRight, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 
 export default function CoachDashboard() {
   const [activeTab, setActiveTab] = useState("clients");
@@ -32,15 +32,13 @@ export default function CoachDashboard() {
               <Users className="w-5 h-5" />
               <span>Mes Élèves</span>
             </button>
-            <button
-              onClick={() => setActiveTab("programs")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
-                activeTab === "programs" ? "bg-amber-400 text-slate-950 font-bold" : "text-slate-400 hover:bg-slate-800"
-              }`}
+            <Link
+              href="/coach/new-program"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm text-slate-400 hover:bg-slate-800 transition-all"
             >
               <Dumbbell className="w-5 h-5" />
-              <span>Programmes</span>
-            </button>
+              <span>Nouveau Programme</span>
+            </Link>
           </nav>
         </div>
         <div className="border-t border-slate-800 pt-4">
@@ -63,10 +61,13 @@ export default function CoachDashboard() {
             <h1 className="text-3xl font-black text-white tracking-tight">Tableau de bord</h1>
             <p className="text-sm text-slate-400">Gère tes élèves et leurs séances en temps réel.</p>
           </div>
-          <button className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all">
+          <Link
+            href="/coach/new-program"
+            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+          >
             <Plus className="w-5 h-5" />
-            <span>Nouveau Client</span>
-          </button>
+            <span>Créer un Programme</span>
+          </Link>
         </header>
 
         {/* Métriques clés */}
