@@ -1,202 +1,147 @@
 "use client";
-import React, { useState } from "react";
-import { supabase } from "../../../lib/supabase";
-import { Plus, Trash2, ArrowLeft, Save, Dumbbell, UserCheck } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
+import { Plus, Users, Dumbbell, TrendingUp, Calendar, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 
-export default function NewProgram() {
-  const [title, setTitle] = useState("");
-  const [coachNote, setCoachNote] = useState("");
-  const [exercises, setExercises] = useState([
-    { name: "", sets: 4, reps: "10-12", target_weight: "12 kg" }
-  ]);
-  const [loading, setLoading] = useState(false);
+export default function CoachDashboard() {
+  const [stats, setStats] = useState({ clients: 0, programs: 0, logs: 0 });
+  const [loading, setLoading] = useState(true);
 
-  const addExercise = () => {
-    setExercises([
-      ...exercises,
-      { name: "", sets: 4, reps: "10-12", target_weight: "10 kg" }
-    ]);
-  };
+  useEffect(() => {
+    fetchCoachStats();
+  }, []);
 
-  const removeExercise = (index) => {
-    setExercises(exercises.filter((_, i) => i !== index));
-  };
-
-  const updateExercise = (index, field, value) => {
-    const updated = [...exercises];
-    updated[index][field] = value;
-    setExercises(updated);
-  };
-
-  const handleSaveProgram = async (e) => {
-    e.preventDefault();
-    if (!title.trim()) return alert("Merci d'indiquer un titre pour ce programme.");
-
-    setLoading(true);
+  const fetchCoachStats = async () => {
     try {
-      // 1. Enregistrement du programme par le coach
-      const { data: program, error: progError } = await supabase
+      setLoading(true);
+
+      const { count: programsCount } = await supabase
         .from("programs")
-        .insert([
-          {
-            title: title,
-            coach_note: coachNote,
-            is_custom: false
-          }
-        ])
-        .select()
-        .single();
+        .select("*", { count: "exact", head: true });
 
-      if (progError) throw progError;
+      const { count: logsCount } = await supabase
+        .from("workout_logs")
+        .select("*", { count: "exact", head: true });
 
-      // 2. Insertion des exercices associés
-      const formattedExercises = exercises.map((ex, idx) => ({
-        program_id: program.id,
-        name: ex.name || `Exercice ${idx + 1}`,
-        sets: parseInt(ex.sets) || 1,
-        reps: ex.reps,
-        target_weight: ex.target_weight,
-        order_index: idx
-      }));
+      const { count: clientsCount } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "client");
 
-      const { error: exError } = await supabase
-        .from("exercises")
-        .insert(formattedExercises);
-
-      if (exError) throw exError;
-
-      alert("Programme publié et assigné avec succès !");
-      window.location.href = "/coach";
+      setStats({
+        clients: clientsCount || 0,
+        programs: programsCount || 0,
+        logs: logsCount || 0,
+      });
     } catch (err) {
-      console.error(err);
-      alert("Erreur lors de la publication du programme.");
+      console.error("Erreur stats:", err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 max-w-2xl mx-auto pb-16">
-      <header className="flex items-center justify-between py-4 mb-8 border-b border-slate-800">
-        <Link href="/coach" className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition-all">
-          <ArrowLeft className="w-5 h-5" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 max-w-5xl mx-auto pb-16">
+      {/* Header avec lien vers création de programme */}
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-slate-800">
+        <div>
+          <span className="text-xs font-extrabold tracking-widest text-amber-400 uppercase bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20">
+            ESPACE COACH
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mt-2">
+            Tableau de bord
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            Gère tes élèves, leurs programmes et suis leurs progrès en direct.
+          </p>
+        </div>
+
+        <Link
+          href="/coach/new-program"
+          className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-5 py-3 rounded-2xl flex items-center gap-2 transition-all shadow-lg shadow-amber-400/10 active:scale-95"
+        >
+          <Plus className="w-5 h-5 stroke-[2.5]" />
+          <span>Créer un Programme</span>
         </Link>
-        <h1 className="text-xl font-black text-white">Créer un Programme VIP</h1>
-        <div className="w-9" />
       </header>
 
-      <form onSubmit={handleSaveProgram} className="space-y-6">
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-            Titre de la séance
-          </label>
-          <input
-            type="text"
-            placeholder="Ex: Séance 1 - Hypertrophie Pectoraux & Triceps"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 text-sm font-medium"
-            required
-          />
+      {/* Cartes de statistiques */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
         </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-            Consignes & Notes du Coach
-          </label>
-          <textarea
-            placeholder="Ex: Garde 2 répétitions en réserve sur la dernière série. Temps de repos: 90s."
-            value={coachNote}
-            onChange={(e) => setCoachNote(e.target.value)}
-            rows={3}
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 text-sm font-medium resize-none"
-          />
-        </div>
-
-        <div className="space-y-4 pt-2">
-          <div className="flex justify-between items-center">
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Dumbbell className="w-5 h-5 text-amber-400" />
-              <span>Exercices du programme</span>
-            </h2>
-            <button
-              type="button"
-              onClick={addExercise}
-              className="text-xs font-bold text-amber-400 flex items-center gap-1.5 bg-amber-400/10 px-3.5 py-2 rounded-xl border border-amber-400/20 hover:bg-amber-400/20 transition-all"
-            >
-              <Plus className="w-4 h-4" /> Ajouter un exercice
-            </button>
-          </div>
-
-          {exercises.map((ex, index) => (
-            <div key={index} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-black text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg">
-                  #{index + 1}
-                </span>
-                <input
-                  type="text"
-                  placeholder="Nom de l'exercice (Ex: Développé couché)"
-                  value={ex.name}
-                  onChange={(e) => updateExercise(index, "name", e.target.value)}
-                  className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold w-full focus:outline-none focus:border-amber-400"
-                  required
-                />
-                {exercises.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeExercise(index)}
-                    className="p-2.5 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div>
-                  <span className="text-slate-400 block mb-1 font-medium">Séries</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={ex.sets}
-                    onChange={(e) => updateExercise(index, "sets", e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-center text-white font-bold"
-                  />
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-1 font-medium">Répétitions</span>
-                  <input
-                    type="text"
-                    value={ex.reps}
-                    onChange={(e) => updateExercise(index, "reps", e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-center text-white font-bold"
-                  />
-                </div>
-                <div>
-                  <span className="text-slate-400 block mb-1 font-medium">Objectif Charge</span>
-                  <input
-                    type="text"
-                    value={ex.target_weight}
-                    onChange={(e) => updateExercise(index, "target_weight", e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-center text-amber-400 font-bold"
-                  />
-                </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold text-slate-400 uppercase">Élèves Suivis</span>
+              <div className="p-2 bg-amber-400/10 rounded-xl text-amber-400">
+                <Users className="w-5 h-5" />
               </div>
             </div>
-          ))}
-        </div>
+            <p className="text-3xl font-black text-white">{stats.clients}</p>
+          </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-4 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl shadow-amber-400/10 mt-8"
-        >
-          <Save className="w-5 h-5" />
-          <span>{loading ? "PUBLICATION EN COURS..." : "PUBLIER LE PROGRAMME"}</span>
-        </button>
-      </form>
+          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold text-slate-400 uppercase">Programmes Actifs</span>
+              <div className="p-2 bg-amber-400/10 rounded-xl text-amber-400">
+                <Dumbbell className="w-5 h-5" />
+              </div>
+            </div>
+            <p className="text-3xl font-black text-white">{stats.programs}</p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold text-slate-400 uppercase">Séances Validées</span>
+              <div className="p-2 bg-amber-400/10 rounded-xl text-amber-400">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+            </div>
+            <p className="text-3xl font-black text-white">{stats.logs}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Raccourcis rapides */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+        <h2 className="text-base font-bold text-white mb-4">Actions Rapides</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Link
+            href="/coach/new-program"
+            className="flex items-center justify-between p-4 bg-slate-950 border border-slate-800/80 hover:border-amber-400/50 rounded-xl transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-400/10 text-amber-400 rounded-xl">
+                <Plus className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-white">Nouveau programme</p>
+                <p className="text-xs text-slate-400">Attribuer une séance d'entraînement</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+          </Link>
+
+          <Link
+            href="/"
+            className="flex items-center justify-between p-4 bg-slate-950 border border-slate-800/80 hover:border-slate-700 rounded-xl transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-slate-800 text-slate-300 rounded-xl">
+                <Dumbbell className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-white">Vue Élève</p>
+                <p className="text-xs text-slate-400">Prévisualiser l'interface pratiquant</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
