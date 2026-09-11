@@ -1,132 +1,200 @@
 "use client";
 import React, { useState } from "react";
-import { Users, Dumbbell, TrendingUp, Plus, ChevronRight, CheckCircle2 } from "lucide-react";
+import { supabase } from "../../../lib/supabase";
+import { Plus, Trash2, ArrowLeft, Save, Dumbbell } from "lucide-react";
 import Link from "next/link";
 
-export default function CoachDashboard() {
-  const [activeTab, setActiveTab] = useState("clients");
+export default function NewProgram() {
+  const [title, setTitle] = useState("");
+  const [coachNote, setCoachNote] = useState("");
+  const [exercises, setExercises] = useState([
+    { name: "", sets: 4, reps: "10-12", target_weight: "12 kg" }
+  ]);
+  const [loading, setLoading] = useState(false);
 
-  const clients = [
-    { id: 1, name: "Thomas Durand", plan: "VIP Suivi Total", lastWorkout: "Aujourd'hui (Séance 1)", status: "Completed", avatar: "TD" },
-    { id: 2, name: "Sophie Martin", plan: "VIP Performance", lastWorkout: "Hier (Jambes)", status: "Completed", avatar: "SM" },
-    { id: 3, name: "Alexandre Petit", plan: "VIP Suivi Total", lastWorkout: "En attente (Séance 2)", status: "Pending", avatar: "AP" },
-  ];
+  const addExercise = () => {
+    setExercises([
+      ...exercises,
+      { name: "", sets: 4, reps: "10-12", target_weight: "10 kg" }
+    ]);
+  };
+
+  const removeExercise = (index) => {
+    setExercises(exercises.filter((_, i) => i !== index));
+  };
+
+  const updateExercise = (index, field, value) => {
+    const updated = [...exercises];
+    updated[index][field] = value;
+    setExercises(updated);
+  };
+
+  const handleSaveProgram = async (e) => {
+    e.preventDefault();
+    if (!title.trim()) return alert("Merci d'indiquer un titre pour ce programme.");
+
+    setLoading(true);
+    try {
+      const { data: program, error: progError } = await supabase
+        .from("programs")
+        .insert([
+          {
+            title: title,
+            coach_note: coachNote,
+            is_custom: false
+          }
+        ])
+        .select()
+        .single();
+
+      if (progError) throw progError;
+
+      const formattedExercises = exercises.map((ex, idx) => ({
+        program_id: program.id,
+        name: ex.name || `Exercice ${idx + 1}`,
+        sets: parseInt(ex.sets) || 1,
+        reps: ex.reps,
+        target_weight: ex.target_weight,
+        order_index: idx
+      }));
+
+      const { error: exError } = await supabase
+        .from("exercises")
+        .insert(formattedExercises);
+
+      if (exError) throw exError;
+
+      alert("Programme publié avec succès !");
+      window.location.href = "/coach";
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de la publication du programme.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex">
-      {/* Barre de navigation latérale */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 p-6 flex flex-col justify-between hidden md:flex">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 max-w-2xl mx-auto pb-16">
+      <header className="flex items-center justify-between py-4 mb-8 border-b border-slate-800">
+        <Link href="/coach" className="p-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-400 hover:text-white transition-all">
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+        <h1 className="text-xl font-black text-white">Créer un Programme VIP</h1>
+        <div className="w-9" />
+      </header>
+
+      <form onSubmit={handleSaveProgram} className="space-y-6">
         <div>
-          <div className="flex items-center gap-2 mb-8">
-            <span className="text-xs font-black tracking-widest text-amber-400 uppercase bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20">
-              COACHING VIP
-            </span>
-          </div>
-          <nav className="space-y-2">
+          <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+            Titre de la séance
+          </label>
+          <input
+            type="text"
+            placeholder="Ex: Séance 1 - Pectoraux & Triceps"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 text-sm font-medium"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+            Consignes & Notes du Coach
+          </label>
+          <textarea
+            placeholder="Ex: Temps de repos : 90 secondes entre chaque série."
+            value={coachNote}
+            onChange={(e) => setCoachNote(e.target.value)}
+            rows={3}
+            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-white placeholder-slate-600 focus:outline-none focus:border-amber-400 text-sm font-medium resize-none"
+          />
+        </div>
+
+        <div className="space-y-4 pt-2">
+          <div className="flex justify-between items-center">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Dumbbell className="w-5 h-5 text-amber-400" />
+              <span>Exercices du programme</span>
+            </h2>
             <button
-              onClick={() => setActiveTab("clients")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${
-                activeTab === "clients" ? "bg-amber-400 text-slate-950 font-bold" : "text-slate-400 hover:bg-slate-800"
-              }`}
+              type="button"
+              onClick={addExercise}
+              className="text-xs font-bold text-amber-400 flex items-center gap-1.5 bg-amber-400/10 px-3.5 py-2 rounded-xl border border-amber-400/20 hover:bg-amber-400/20 transition-all"
             >
-              <Users className="w-5 h-5" />
-              <span>Mes Élèves</span>
+              <Plus className="w-4 h-4" /> Ajouter un exercice
             </button>
-            <Link
-              href="/coach/new-program"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm text-slate-400 hover:bg-slate-800 transition-all"
-            >
-              <Dumbbell className="w-5 h-5" />
-              <span>Nouveau Programme</span>
-            </Link>
-          </nav>
-        </div>
-        <div className="border-t border-slate-800 pt-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center">
-              PRO
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white">Espace Coach</p>
-              <p className="text-xs text-slate-500">Abonnement Actif</p>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Contenu principal */}
-      <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-black text-white tracking-tight">Tableau de bord</h1>
-            <p className="text-sm text-slate-400">Gère tes élèves et leurs séances en temps réel.</p>
-          </div>
-          <Link
-            href="/coach/new-program"
-            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Créer un Programme</span>
-          </Link>
-        </header>
-
-        {/* Métriques clés */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">Élèves Actifs</span>
-              <Users className="w-5 h-5 text-amber-400" />
-            </div>
-            <p className="text-3xl font-black text-white">12</p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">Séances Validées (Semaine)</span>
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-            </div>
-            <p className="text-3xl font-black text-white">28</p>
-          </div>
+          {exercises.map((ex, index) => (
+            <div key={index} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-black text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg">
+                  #{index + 1}
+                </span>
+                <input
+                  type="text"
+                  placeholder="Nom de l'exercice"
+                  value={ex.name}
+                  onChange={(e) => updateExercise(index, "name", e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white font-bold w-full focus:outline-none focus:border-amber-400"
+                  required
+                />
+                {exercises.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeExercise(index)}
+                    className="p-2.5 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
 
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-            <div className="flex items-center justify-between text-slate-400 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">Revenu Mensuel Estimé</span>
-              <TrendingUp className="w-5 h-5 text-amber-400" />
-            </div>
-            <p className="text-3xl font-black text-white">1 440 €</p>
-          </div>
-        </div>
-
-        {/* Liste des Élèves */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-lg font-bold text-white mb-4">Suivi des Élèves</h2>
-          <div className="space-y-3">
-            {clients.map((client) => (
-              <div key={client.id} className="flex items-center justify-between p-4 bg-slate-950/60 border border-slate-800/80 rounded-xl hover:border-slate-700 transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 font-bold text-amber-400 flex items-center justify-center text-sm">
-                    {client.avatar}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white">{client.name}</h3>
-                    <p className="text-xs text-slate-400">{client.plan}</p>
-                  </div>
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-400 block mb-1 font-medium">Séries</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={ex.sets}
+                    onChange={(e) => updateExercise(index, "sets", e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-center text-white font-bold"
+                  />
                 </div>
-
-                <div className="flex items-center gap-6">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-xs text-slate-300 font-medium">{client.lastWorkout}</p>
-                    <span className={`text-[10px] font-bold ${client.status === 'Completed' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                      {client.status === 'Completed' ? 'Séance validée' : 'En attente'}
-                    </span>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-600" />
+                <div>
+                  <span className="text-slate-400 block mb-1 font-medium">Répétitions</span>
+                  <input
+                    type="text"
+                    value={ex.reps}
+                    onChange={(e) => updateExercise(index, "reps", e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-center text-white font-bold"
+                  />
+                </div>
+                <div>
+                  <span className="text-slate-400 block mb-1 font-medium">Charge</span>
+                  <input
+                    type="text"
+                    value={ex.target_weight}
+                    onChange={(e) => updateExercise(index, "target_weight", e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-center text-amber-400 font-bold"
+                  />
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
-      </main>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-4 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-slate-950 font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl shadow-amber-400/10 mt-8"
+        >
+          <Save className="w-5 h-5" />
+          <span>{loading ? "PUBLICATION..." : "PUBLIER LE PROGRAMME"}</span>
+        </button>
+      </form>
     </div>
   );
 }
