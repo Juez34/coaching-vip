@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Check, Flame, Play, ChevronRight, Dumbbell, Calendar, User, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 export default function StudentWorkout() {
   const [workout, setWorkout] = useState(null);
