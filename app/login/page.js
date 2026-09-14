@@ -10,19 +10,13 @@ export default function Login() {
   const [role, setRole] = useState("client");
   const [loading, setLoading] = useState(false);
 
-  const redirectUser = (userRole) => {
-    if (userRole === "admin") window.location.assign("/admin");
-    else if (userRole === "coach") window.location.assign("/coach");
-    else window.location.assign("/client");
-  };
-
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       if (isSignUp) {
-        // INSCRIPTION avec envoi du rôle dans les métadonnées (pour le Trigger SQL)
+        // INSCRIPTION
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -32,7 +26,6 @@ export default function Login() {
         });
         if (error) throw error;
 
-        // Sécurité de secours : insertion directe dans profiles
         if (data.user) {
           await supabase.from("profiles").upsert([
             {
@@ -46,22 +39,36 @@ export default function Login() {
         setIsSignUp(false);
       } else {
         // CONNEXION
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-        // Récupération stricte du rôle dans la table profiles
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .single();
+        if (authError) throw authError;
 
-        if (profileError) {
-          console.error("Erreur de récupération du profil:", profileError);
+        if (authData?.user) {
+          // Lecture directe et explicite du rôle
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", authData.user.id)
+            .maybeSingle();
+
+          if (profileError) {
+            console.error("Erreur récupération profil:", profileError);
+          }
+
+          const userRole = profile?.role;
+
+          // Redirection stricte sans valeur par défaut
+          if (userRole === "admin") {
+            window.location.href = "/admin";
+          } else if (userRole === "coach") {
+            window.location.href = "/coach";
+          } else {
+            window.location.href = "/client";
+          }
         }
-
-        const userRole = profile?.role || "client";
-        redirectUser(userRole);
       }
     } catch (err) {
       alert(err.message || "Erreur d'authentification");
