@@ -1,12 +1,13 @@
 "use client";
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { Check, ArrowLeft, Timer, Pause, Play, RotateCcw, Loader2, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 
-export default function DedicatedWorkoutPage({ params }) {
-  const resolvedParams = use(params);
-  const programId = resolvedParams.id;
+export default function DedicatedWorkoutPage() {
+  const params = useParams();
+  const programId = params?.id;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -19,7 +20,9 @@ export default function DedicatedWorkoutPage({ params }) {
   const [isTimerRunning, setIsTimerRunning] = useState(true);
 
   useEffect(() => {
-    fetchWorkoutDetails();
+    if (programId) {
+      fetchWorkoutDetails();
+    }
   }, [programId]);
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export default function DedicatedWorkoutPage({ params }) {
     try {
       setLoading(true);
 
-      // 1. Programme
+      // 1. Charger le programme
       const { data: progData, error: progErr } = await supabase
         .from("programs")
         .select("*")
@@ -54,7 +57,7 @@ export default function DedicatedWorkoutPage({ params }) {
       if (progErr) throw progErr;
       setProgram(progData);
 
-      // 2. Exercices
+      // 2. Charger les exercices liés
       const { data: exData, error: exErr } = await supabase
         .from("exercises")
         .select("*")
@@ -64,7 +67,7 @@ export default function DedicatedWorkoutPage({ params }) {
       if (exErr) throw exErr;
       setExercises(exData || []);
     } catch (err) {
-      alert("Erreur de chargement de la séance : " + err.message);
+      console.error("Erreur de chargement :", err.message);
     } finally {
       setLoading(false);
     }
@@ -110,13 +113,11 @@ export default function DedicatedWorkoutPage({ params }) {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-2xl mx-auto pb-24">
-      {/* Retour */}
       <Link href="/client" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-4">
         <ArrowLeft className="w-4 h-4" />
         <span>Quitter la séance</span>
       </Link>
 
-      {/* Titre & Note */}
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-black text-white">{program?.title}</h1>
         {program?.coach_note && (
@@ -126,7 +127,7 @@ export default function DedicatedWorkoutPage({ params }) {
         )}
       </div>
 
-      {/* CHRONO FLOTTANT / SUPERIEUR */}
+      {/* Chrono */}
       <div className="sticky top-4 z-40 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-4 mb-6 flex items-center justify-between shadow-2xl">
         <div className="flex items-center gap-3">
           <Timer className="w-5 h-5 text-amber-400 animate-pulse" />
@@ -148,7 +149,7 @@ export default function DedicatedWorkoutPage({ params }) {
         </div>
       </div>
 
-      {/* LISTE DES EXERCICES */}
+      {/* Liste exercices */}
       <div className="space-y-4">
         {exercises.map((ex) => (
           <div key={ex.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
@@ -189,7 +190,6 @@ export default function DedicatedWorkoutPage({ params }) {
         ))}
       </div>
 
-      {/* BOUTON DE VALIDATION FINALE */}
       <button
         onClick={handleFinishWorkout}
         disabled={saving}
