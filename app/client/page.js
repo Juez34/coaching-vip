@@ -1,55 +1,94 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { Check, Flame, Play, Dumbbell, Calendar, User, Loader2, Search, UserCheck, LogOut, ChevronRight, Star, Award, Phone } from "lucide-react";
+import { 
+  Check, Play, Dumbbell, UserCheck, LogOut, ChevronRight, 
+  Star, Search, User, Plus, Loader2, Sparkles, BookOpen 
+} from "lucide-react";
 import Link from "next/link";
 
 export default function StudentWorkout() {
-  const [workout, setWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  // État des programmes et coaches
+  const [myCoaches, setMyCoaches] = useState([]);
+  const [selectedCoachId, setSelectedCoachId] = useState(null);
+  const [programs, setPrograms] = useState([]);
+  const [activeProgramIndex, setActiveProgramIndex] = useState(0);
   const [completedSets, setCompletedSets] = useState({});
 
-  const [coachQuery, setCoachQuery] = useState("");
-  const [coaches, setCoaches] = useState([]);
-  const [featuredCoach, setFeaturedCoach] = useState(null);
+  // Recherche & Ajout de Coach
   const [showCoachSearch, setShowCoachSearch] = useState(false);
+  const [coachQuery, setCoachQuery] = useState("");
+  const [coachesSearchResults, setCoachesSearchResults] = useState([]);
+  const [featuredCoach, setFeaturedCoach] = useState(null);
+
+  // Modal de création de séance autonome
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [customTitle, setCustomTitle] = useState("");
+  const [customNote, setCustomNote] = useState("");
+  const [customExercises, setCustomExercises] = useState([
+    { name: "", sets: 3, reps: "10", target_weight: "20kg" }
+  ]);
 
   useEffect(() => {
-    fetchWorkoutData();
-    fetchFeaturedCoach();
+    initStudentData();
   }, []);
 
-  const fetchWorkoutData = async () => {
+  const initStudentData = async () => {
     try {
       setLoading(true);
-      const { data: programData, error: programError } = await supabase
-        .from("programs")
-        .select("*")
-        .limit(1)
-        .single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return (window.location.href = "/login");
 
-      if (programError && programError.code !== "PGRST116") {
-        console.error("Erreur programme:", programError);
-      }
-
-      if (programData) {
-        const { data: exercisesData } = await supabase
-          .from("exercises")
-          .select("*")
-          .eq("program_id", programData.id)
-          .order("order_index", { ascending: true });
-
-        setWorkout({
-          id: programData.id,
-          title: programData.title,
-          coachNote: programData.coach_note,
-          exercises: exercisesData || []
-        });
-      }
+      setCurrentUserId(user.id);
+      await loadCoachesAndPrograms(user.id);
+      fetchFeaturedCoach();
     } catch (err) {
-      console.error("Erreur de chargement:", err);
-    } finally {
+      console.error("Erreur d'initialisation:", err);
+    } fontinally {
       setLoading(false);
+    }
+  };
+
+  const loadCoachesAndPrograms = async (userId) => {
+    // 1. Charger les coaches associés à l'élève
+    const { data: coachesData } = await supabase
+      .from("student_coaches")
+      .select("coach_id, profiles!student_coaches_coach_id_fkey(id, full_name, email)")
+      .eq("student_id", userId);
+
+    const formattedCoaches = (coachesData || []).map(c => c.profiles);
+    setMyCoaches(formattedCoaches);
+
+    // 2. Charger tous les programmes (du coach sélectionné ou créés par soi-même)
+    let query = supabase.from("programs").select("*");
+    
+    if (formattedCoaches.length > 0) {
+      const coachIds = formattedCoaches.map(c => c.id);
+      query = query.or(`coach_id.in.(${coachIds.join(",")}),user_id.eq.${userId}`);
+    } else {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data: programData } = await query;
+
+    if (programData && programData.length > 0) {
+      // Pour chaque programme, charger ses exercices
+      const fullPrograms = await Promise.all(
+        programData.map(async (prog) => {
+          const { data: exData } = await supabase
+            .from("exercises")
+            .select("*")
+            .eq("program_id", prog.id)
+            .order("order_index", { ascending: true });
+          return { ...prog, exercises: exData || [] };
+        })
+      );
+      setPrograms(fullPrograms);
+    } else {
+      setPrograms([]);
     }
   };
 
@@ -60,9 +99,7 @@ export default function StudentWorkout() {
       .eq("email", "pauline.marion@hotmail.fr")
       .maybeSingle();
 
-    if (data) {
-      setFeaturedCoach(data);
-    }
+    if (data) setFeaturedCoach(data);
   };
 
   const handleLogout = async () => {
@@ -72,38 +109,84 @@ export default function StudentWorkout() {
     window.location.replace("/login");
   };
 
+  // Recherche Multi-Critères de Coaches
   const searchCoach = async (query) => {
     setCoachQuery(query);
-    if (query.length < 2) return setCoaches([]);
+    if (query.length < 2) return setCoachesSearchResults([]);
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("profiles")
-      .select("id, full_name, first_name, last_name, email, phone, specialties, bio, certifications")
+      .select("id, full_name, email, phone, specialties")
       .eq("role", "coach")
       .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%,specialties.ilike.%${query}%`);
 
-    if (error) {
-      console.error("Erreur de recherche:", error);
+    setCoachesSearchResults(data || []);
+  };
+
+  // Ajouter un coach à sa liste
+  const addCoach = async (coachId) => {
+    const { error } = await supabase
+      .from("student_coaches")
+      .insert([{ student_id: currentUserId, coach_id: coachId }]);
+
+    if (error && error.code !== "23505") { // Ignorer si déjà ajouté
+      alert("Erreur lors de l'ajout du coach.");
     } else {
-      setCoaches(data || []);
+      alert("Coach ajouté avec succès !");
+      setShowCoachSearch(false);
+      loadCoachesAndPrograms(currentUserId);
     }
   };
 
-  const selectCoach = async (coachId) => {
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) return alert("Connecte-toi pour enregistrer ton coach.");
+  // Création d'une séance autonome par l'élève
+  const handleCreateCustomWorkout = async (e) => {
+    e.preventDefault();
+    if (!customTitle.trim()) return alert("Merci d'indiquer un titre.");
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({ coach_id: coachId })
-      .eq("id", user.user.id);
+    try {
+      // 1. Créer le programme autonome
+      const { data: newProg, error: progErr } = await supabase
+        .from("programs")
+        .insert([{
+          title: customTitle,
+          coach_note: customNote || "Séance perso",
+          user_id: currentUserId
+        }])
+        .select()
+        .single();
 
-    if (error) {
-      alert("Erreur lors de la sélection du coach.");
-    } else {
-      alert("Ton coach a été enregistré !");
-      window.location.reload();
+      if (progErr) throw progErr;
+
+      // 2. Insérer les exercices
+      const exToInsert = customExercises
+        .filter(ex => ex.name.trim() !== "")
+        .map((ex, idx) => ({
+          program_id: newProg.id,
+          name: ex.name,
+          sets: parseInt(ex.sets),
+          reps: ex.reps,
+          target_weight: ex.target_weight,
+          order_index: idx
+        }));
+
+      if (exToInsert.length > 0) {
+        const { error: exErr } = await supabase.from("exercises").insert(exToInsert);
+        if (exErr) throw exErr;
+      }
+
+      alert("Ta séance personnalisée a été créée !");
+      setShowCustomModal(false);
+      setCustomTitle("");
+      setCustomNote("");
+      setCustomExercises([{ name: "", sets: 3, reps: "10", target_weight: "20kg" }]);
+      loadCoachesAndPrograms(currentUserId);
+    } catch (err) {
+      alert("Erreur lors de la création : " + err.message);
     }
+  };
+
+  const addCustomExerciseField = () => {
+    setCustomExercises([...customExercises, { name: "", sets: 3, reps: "10", target_weight: "20kg" }]);
   };
 
   const toggleSet = (exerciseId, setIndex) => {
@@ -112,21 +195,20 @@ export default function StudentWorkout() {
   };
 
   const saveWorkout = async () => {
-    if (!workout) return;
-    
+    const activeProg = programs[activeProgramIndex];
+    if (!activeProg) return;
+
     try {
       const { error } = await supabase.from("workout_logs").insert([
         {
-          program_id: workout.id,
+          program_id: activeProg.id,
           completed_sets: completedSets
         }
       ]);
-
       if (error) throw error;
-      alert("Séance enregistrée avec succès !");
+      alert("Séance enregistrée avec succès ! Bravo 💪");
     } catch (err) {
       alert("Erreur lors de l'enregistrement de la séance.");
-      console.error(err);
     }
   };
 
@@ -138,20 +220,20 @@ export default function StudentWorkout() {
     );
   }
 
+  const currentProgram = programs[activeProgramIndex];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-6xl mx-auto pb-20">
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-slate-800">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-6xl mx-auto pb-24">
+      {/* En-tête Navigation & Mon Profil */}
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-6 border-b border-slate-800">
         <div>
           <span className="text-[11px] font-extrabold tracking-widest text-amber-400 uppercase bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20 shadow-sm inline-block mb-2">
             ESPACE ÉLÈVE
           </span>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {workout ? workout.title : "Mon Programme"}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Suivi de tes séances et entraînements.</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Mes Entraînements</h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Suis tes programmes et crée tes propres séances.</p>
         </div>
 
-        {/* Menu utilisateur */}
         <div className="flex items-center gap-2">
           <Link
             href="/profile"
@@ -171,121 +253,143 @@ export default function StudentWorkout() {
         </div>
       </header>
 
-      {!workout ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center text-center max-w-md mx-auto">
-          <div className="w-14 h-14 bg-amber-400/10 border border-amber-400/20 rounded-2xl flex items-center justify-center mb-4">
-            <Dumbbell className="w-7 h-7 text-amber-400" />
+      {/* BLOC 1 : Message "Vous n'avez pas choisi de coach" & Gestion des Coaches */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 space-y-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Mes Coaches</h3>
+            {myCoaches.length === 0 ? (
+              <p className="text-sm font-semibold text-amber-400 mt-1">Vous n'avez pas encore choisi de coach.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {myCoaches.map((c) => (
+                  <span key={c.id} className="text-xs bg-slate-950 text-slate-300 px-3 py-1 rounded-lg border border-slate-800 font-medium">
+                    👤 {c.full_name || c.email}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-          <h2 className="text-lg font-bold mb-2 text-white">Aucun programme assigné</h2>
-          <p className="text-xs text-slate-400 mb-6">
-            Ton coach n'a pas encore publié de séance pour ton profil, ou tu n'as pas encore sélectionné ton coach.
-          </p>
 
           <button
             onClick={() => setShowCoachSearch(!showCoachSearch)}
-            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all mb-4"
+            className="bg-amber-400/10 hover:bg-amber-400/20 text-amber-400 border border-amber-400/30 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-2 transition-all shrink-0"
           >
             <UserCheck className="w-4 h-4" />
-            <span>Trouver mon Coach</span>
+            <span>{myCoaches.length === 0 ? "Trouver un Coach" : "Ajouter un autre Coach"}</span>
           </button>
+        </div>
 
-          {showCoachSearch && (
-            <div className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-4 text-left">
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">
-                  Rechercher un coach
-                </label>
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
-                  <input
-                    type="text"
-                    placeholder="Nom, mail, téléphone, spécialité..."
-                    value={coachQuery}
-                    onChange={(e) => searchCoach(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-amber-400"
-                  />
+        {/* Formulaire / Modal de Recherche de Coach */}
+        {showCoachSearch && (
+          <div className="pt-3 border-t border-slate-800/80 space-y-4">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1">
+                Rechercher par nom, mail, téléphone ou domaine
+              </label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Ex: Pauline Marion, Perte de poids..."
+                  value={coachQuery}
+                  onChange={(e) => searchCoach(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+
+            {/* Coach à la une */}
+            {featuredCoach && coachQuery.length < 2 && (
+              <div className="bg-slate-950 border border-amber-400/30 rounded-xl p-3 space-y-2">
+                <span className="text-[10px] font-black uppercase text-amber-400 flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> Coach à la une
+                </span>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="text-xs font-bold text-white">{featuredCoach.full_name}</h4>
+                    <span className="text-[10px] text-slate-400 block">{featuredCoach.email}</span>
+                  </div>
+                  <button
+                    onClick={() => addCoach(featuredCoach.id)}
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                  >
+                    Ajouter
+                  </button>
                 </div>
               </div>
+            )}
 
-              {featuredCoach && coachQuery.length < 2 && (
-                <div className="space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    Coach à la une
-                  </span>
-                  <div className="bg-slate-900 border border-amber-400/30 rounded-xl p-3 flex flex-col gap-2 relative overflow-hidden">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="text-xs font-black text-white flex items-center gap-1.5">
-                          {featuredCoach.full_name || "Pauline Marion"}
-                        </h4>
-                        <p className="text-[11px] text-amber-400/90 font-medium">{featuredCoach.email}</p>
-                      </div>
-                      <button
-                        onClick={() => selectCoach(featuredCoach.id)}
-                        className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-lg shrink-0 transition-all"
-                      >
-                        Sélectionner
-                      </button>
+            {/* Résultats de recherche */}
+            {coachQuery.length >= 2 && (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {coachesSearchResults.map((c) => (
+                  <div key={c.id} className="flex justify-between items-center p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+                    <div>
+                      <h4 className="text-xs font-bold text-white">{c.full_name || "Coach"}</h4>
+                      <span className="text-[10px] text-slate-400 block">{c.email}</span>
                     </div>
-
-                    {featuredCoach.specialties && (
-                      <p className="text-[10px] text-slate-300">
-                        <span className="font-bold text-slate-400">Spécialités :</span> {featuredCoach.specialties}
-                      </p>
-                    )}
+                    <button
+                      onClick={() => addCoach(c.id)}
+                      className="bg-amber-400 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-md"
+                    >
+                      Sélectionner
+                    </button>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
-              {coachQuery.length >= 2 && (
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {coaches.map((c) => (
-                    <div key={c.id} className="p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="text-xs font-bold text-white">{c.full_name || "Coach"}</h4>
-                          <span className="text-[10px] text-slate-400 block">{c.email}</span>
-                          {c.phone && <span className="text-[10px] text-slate-400 block">{c.phone}</span>}
-                        </div>
-                        <button
-                          onClick={() => selectCoach(c.id)}
-                          className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-md shrink-0 transition-all"
-                        >
-                          Sélectionner
-                        </button>
-                      </div>
+      {/* BLOC 2 : Navigation entre les programmes & Création de séances autonomes */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+        {/* Onglets de sélection des programmes */}
+        {programs.length > 0 ? (
+          <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1">
+            {programs.map((prog, idx) => (
+              <button
+                key={prog.id}
+                onClick={() => setActiveProgramIndex(idx)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${
+                  activeProgramIndex === idx
+                    ? "bg-amber-400 text-slate-950 border-amber-400 shadow-md"
+                    : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                }`}
+              >
+                {prog.title} {prog.user_id ? "(Perso)" : ""}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400">Aucun programme disponible pour l'instant.</span>
+        )}
 
-                      {c.specialties && (
-                        <div className="text-[10px] bg-slate-950 p-2 rounded-lg border border-slate-800/80">
-                          <span className="font-bold text-amber-400">Domaines : </span>
-                          <span className="text-slate-300">{c.specialties}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+        {/* Bouton Créer sa propre séance */}
+        <button
+          onClick={() => setShowCustomModal(true)}
+          className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 border border-slate-800 transition-all shrink-0"
+        >
+          <Plus className="w-4 h-4 text-amber-400" />
+          <span>Créer ma Séance</span>
+        </button>
+      </div>
 
-                  {coaches.length === 0 && (
-                    <p className="text-xs text-slate-500 text-center py-3">Aucun coach ne correspond à ta recherche.</p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <main className="space-y-5 max-w-md mx-auto">
-          {workout.coachNote && (
+      {/* BLOC 3 : Contenu du programme actif */}
+      {currentProgram ? (
+        <main className="space-y-5 max-w-2xl mx-auto">
+          {currentProgram.coach_note && (
             <div className="text-xs text-slate-300 bg-slate-900 p-3.5 rounded-2xl border border-slate-800 flex gap-2.5 items-start">
               <span className="text-base leading-none">💡</span>
               <div>
-                <span className="font-bold text-amber-400">Note du coach : </span>
-                {workout.coachNote}
+                <span className="font-bold text-amber-400">Note : </span>
+                {currentProgram.coach_note}
               </div>
             </div>
           )}
 
-          {workout.exercises.map((ex) => (
+          {currentProgram.exercises.map((ex) => (
             <div key={ex.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
               <div className="flex justify-between items-start mb-3">
                 <div>
@@ -340,6 +444,132 @@ export default function StudentWorkout() {
             <ChevronRight className="w-5 h-5" />
           </button>
         </main>
+      ) : (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center max-w-md mx-auto space-y-3">
+          <Dumbbell className="w-10 h-10 text-amber-400/50 mx-auto" />
+          <h3 className="text-sm font-bold text-white">Aucun exercice trouvé</h3>
+          <p className="text-xs text-slate-400">
+            Crée ta première séance autonome ci-dessus ou sélectionne un coach pour recevoir un programme.
+          </p>
+        </div>
+      )}
+
+      {/* MODAL : CRÉER SA PROPRE SÉANCE */}
+      {showCustomModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-white">Créer ma séance sur-mesure</h3>
+
+            <form onSubmit={handleCreateCustomWorkout} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Titre de la séance *</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Pecs / Triceps maison"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-400"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Note / Rappel</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Pause de 90s entre les séries..."
+                  value={customNote}
+                  onChange={(e) => setCustomNote(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <label className="block text-xs font-bold uppercase text-amber-400">Exercices</label>
+                {customExercises.map((ex, idx) => (
+                  <div key={idx} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                    <input
+                      type="text"
+                      placeholder={`Nom de l'exercice ${idx + 1}`}
+                      value={ex.name}
+                      onChange={(e) => {
+                        const updated = [...customExercises];
+                        updated[idx].name = e.target.value;
+                        setCustomExercises(updated);
+                      }}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                    />
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[9px] text-slate-400 uppercase">Séries</label>
+                        <input
+                          type="number"
+                          value={ex.sets}
+                          onChange={(e) => {
+                            const updated = [...customExercises];
+                            updated[idx].sets = e.target.value;
+                            setCustomExercises(updated);
+                          }}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-slate-400 uppercase">Répétitions</label>
+                        <input
+                          type="text"
+                          value={ex.reps}
+                          onChange={(e) => {
+                            const updated = [...customExercises];
+                            updated[idx].reps = e.target.value;
+                            setCustomExercises(updated);
+                          }}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-slate-400 uppercase">Charge</label>
+                        <input
+                          type="text"
+                          value={ex.target_weight}
+                          onChange={(e) => {
+                            const updated = [...customExercises];
+                            updated[idx].target_weight = e.target.value;
+                            setCustomExercises(updated);
+                          }}
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={addCustomExerciseField}
+                  className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-dashed border-slate-700 text-slate-300 font-bold text-xs rounded-xl flex items-center justify-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Ajouter un exercice
+                </button>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomModal(false)}
+                  className="w-1/2 py-2.5 bg-slate-950 text-slate-400 font-bold text-xs rounded-xl border border-slate-800"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl"
+                >
+                  Créer la séance
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
