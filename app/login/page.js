@@ -1,11 +1,13 @@
 "use client";
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { Dumbbell, ArrowRight, Lock, Mail } from "lucide-react";
+import { Dumbbell, ArrowRight, Lock, Mail, User } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [role, setRole] = useState("client");
   const [loading, setLoading] = useState(false);
@@ -16,12 +18,17 @@ export default function Login() {
 
     try {
       if (isSignUp) {
-        // INSCRIPTION
+        const fullName = `${firstName} ${lastName}`.trim();
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { role: role }
+            data: { 
+              role: role,
+              first_name: firstName,
+              last_name: lastName,
+              full_name: fullName
+            }
           }
         });
         if (error) throw error;
@@ -31,6 +38,10 @@ export default function Login() {
             {
               id: data.user.id,
               role: role,
+              email: email,
+              first_name: firstName,
+              last_name: lastName,
+              full_name: fullName
             },
           ]);
         }
@@ -38,7 +49,6 @@ export default function Login() {
         alert("Compte créé avec succès ! Tu peux maintenant te connecter.");
         setIsSignUp(false);
       } else {
-        // CONNEXION
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -47,27 +57,16 @@ export default function Login() {
         if (authError) throw authError;
 
         if (authData?.user) {
-          // Lecture directe et explicite du rôle
-          const { data: profile, error: profileError } = await supabase
+          const { data: profile } = await supabase
             .from("profiles")
             .select("role")
             .eq("id", authData.user.id)
             .maybeSingle();
 
-          if (profileError) {
-            console.error("Erreur récupération profil:", profileError);
-          }
-
-          const userRole = profile?.role;
-
-          // Redirection stricte sans valeur par défaut
-          if (userRole === "admin") {
-            window.location.href = "/admin";
-          } else if (userRole === "coach") {
-            window.location.href = "/coach";
-          } else {
-            window.location.href = "/client";
-          }
+          const userRole = profile?.role || "client";
+          if (userRole === "admin") window.location.href = "/admin";
+          else if (userRole === "coach") window.location.href = "/coach";
+          else window.location.href = "/client";
         }
       }
     } catch (err) {
@@ -86,41 +85,62 @@ export default function Login() {
           </div>
           <h1 className="text-xl font-black text-white">COACHING VIP</h1>
           <p className="text-xs text-slate-400 mt-1">
-            {isSignUp ? "Crée ton compte pour démarrer" : "Accède à ton espace personnel"}
+            {isSignUp ? "Création de ton compte" : "Accède à ton espace personnel"}
           </p>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-                Je suis :
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRole("client")}
-                  className={`py-2 text-xs font-bold rounded-xl border transition-all ${
-                    role === "client"
-                      ? "bg-amber-400 text-slate-950 border-amber-400"
-                      : "bg-slate-950 text-slate-400 border-slate-800"
-                  }`}
-                >
-                  Élève
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole("coach")}
-                  className={`py-2 text-xs font-bold rounded-xl border transition-all ${
-                    role === "coach"
-                      ? "bg-amber-400 text-slate-950 border-amber-400"
-                      : "bg-slate-950 text-slate-400 border-slate-800"
-                  }`}
-                >
-                  Coach
-                </button>
+            <>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Je suis :</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRole("client")}
+                    className={`py-2 text-xs font-bold rounded-xl border transition-all ${
+                      role === "client" ? "bg-amber-400 text-slate-950 border-amber-400" : "bg-slate-950 text-slate-400 border-slate-800"
+                    }`}
+                  >
+                    Élève
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole("coach")}
+                    className={`py-2 text-xs font-bold rounded-xl border transition-all ${
+                      role === "coach" ? "bg-amber-400 text-slate-950 border-amber-400" : "bg-slate-950 text-slate-400 border-slate-800"
+                    }`}
+                  >
+                    Coach
+                  </button>
+                </div>
               </div>
-            </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Prénom</label>
+                  <input
+                    type="text"
+                    placeholder="Jean"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-amber-400"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Nom</label>
+                  <input
+                    type="text"
+                    placeholder="Dupont"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-amber-400"
+                    required
+                  />
+                </div>
+              </div>
+            </>
           )}
 
           <div>
