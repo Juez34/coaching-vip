@@ -11,7 +11,7 @@ export default function StudentWorkout() {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
 
-  // État des programmes et coaches
+  // État des programmes et coachs
   const [myCoaches, setMyCoaches] = useState([]);
   const [selectedCoachId, setSelectedCoachId] = useState(null);
   const [programs, setPrograms] = useState([]);
@@ -53,7 +53,7 @@ export default function StudentWorkout() {
   };
 
   const loadCoachesAndPrograms = async (userId) => {
-    // 1. Charger les coaches associés à l'élève
+    // 1. Charger les coachs associés à l'élève
     const { data: coachesData } = await supabase
       .from("student_coaches")
       .select("coach_id, profiles!student_coaches_coach_id_fkey(id, full_name, email)")
@@ -109,7 +109,7 @@ export default function StudentWorkout() {
     window.location.replace("/login");
   };
 
-  // Recherche Multi-Critères de Coaches
+  // Recherche Multi-Critères de Coachs
   const searchCoach = async (query) => {
     setCoachQuery(query);
     if (query.length < 2) return setCoachesSearchResults([]);
@@ -253,11 +253,11 @@ export default function StudentWorkout() {
         </div>
       </header>
 
-      {/* BLOC 1 : Message "Vous n'avez pas choisi de coach" & Gestion des Coaches */}
+      {/* BLOC 1 : Message "Vous n'avez pas choisi de coach" & Gestion des Coachs */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 space-y-3">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Mes Coaches</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Mes Coachs</h3>
             {myCoaches.length === 0 ? (
               <p className="text-sm font-semibold text-amber-400 mt-1">Vous n'avez pas encore choisi de coach.</p>
             ) : (
