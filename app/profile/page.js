@@ -1,16 +1,30 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { User, Mail, Trash2, Save, ArrowLeft, Loader2 } from "lucide-react";
+import { User, Mail, Trash2, Save, ArrowLeft, Loader2, Phone, Award, Activity } from "lucide-react";
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState(null);
+  
+  // Champs communs
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState("");
+
+  // Champs spécifiques Élève
+  const [age, setAge] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+
+  // Champs spécifiques Coach
+  const [specialties, setSpecialties] = useState("");
+  const [certifications, setCertifications] = useState("");
+  const [yearsExperience, setYearsExperience] = useState("");
+  const [bio, setBio] = useState("");
 
   useEffect(() => {
     loadProfile();
@@ -33,7 +47,18 @@ export default function ProfilePage() {
       if (profile) {
         setFirstName(profile.first_name || "");
         setLastName(profile.last_name || "");
+        setPhone(profile.phone || "");
         setRole(profile.role || "client");
+
+        // Chargement des données selon le rôle
+        setAge(profile.age || "");
+        setHeight(profile.height || "");
+        setWeight(profile.weight || "");
+
+        setSpecialties(profile.specialties || "");
+        setCertifications(profile.certifications || "");
+        setYearsExperience(profile.years_experience || "");
+        setBio(profile.bio || "");
       }
     } catch (err) {
       console.error("Erreur de chargement du profil:", err);
@@ -47,14 +72,28 @@ export default function ProfilePage() {
     setSaving(true);
     const fullName = `${firstName} ${lastName}`.trim();
 
+    const updates = {
+      first_name: firstName,
+      last_name: lastName,
+      full_name: fullName,
+      phone: phone || null,
+    };
+
+    if (role === "client") {
+      updates.age = age ? parseInt(age) : null;
+      updates.height = height ? parseFloat(height) : null;
+      updates.weight = weight ? parseFloat(weight) : null;
+    } else if (role === "coach") {
+      updates.specialties = specialties || null;
+      updates.certifications = certifications || null;
+      updates.years_experience = yearsExperience ? parseInt(yearsExperience) : null;
+      updates.bio = bio || null;
+    }
+
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({
-          first_name: firstName,
-          last_name: lastName,
-          full_name: fullName
-        })
+        .update(updates)
         .eq("id", userId);
 
       if (error) throw error;
@@ -67,15 +106,15 @@ export default function ProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
-    const confirmation = confirm("Attention ! Ton compte et tes données seront définitivement supprimés. Continuer ?");
+    const confirmation = confirm("Attention ! Ton profil et tes données seront définitivement supprimés. Continuer ?");
     if (!confirmation) return;
 
     try {
-      // 1. Suppression dans la table profiles
+      // Suppression de la ligne dans la table profiles
       const { error: profileError } = await supabase.from("profiles").delete().eq("id", userId);
       if (profileError) throw profileError;
 
-      // 2. Déconnexion
+      // Déconnexion et nettoyage du cache
       await supabase.auth.signOut();
       localStorage.clear();
       sessionStorage.clear();
@@ -96,13 +135,13 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-xl mx-auto">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-xl mx-auto pb-12">
       <button
         onClick={() => window.history.back()}
         className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span>Retour</span>
+        <span>Retour au tableau de bord</span>
       </button>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
@@ -111,7 +150,7 @@ export default function ProfilePage() {
             Rôle : {role}
           </span>
           <h1 className="text-2xl font-black text-white mt-2">Mon Profil</h1>
-          <p className="text-xs text-slate-400">Modifie tes informations personnelles</p>
+          <p className="text-xs text-slate-400">Gère tes informations personnelles</p>
         </div>
 
         <form onSubmit={handleUpdate} className="space-y-4">
@@ -137,6 +176,100 @@ export default function ProfilePage() {
           </div>
 
           <div>
+            <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Téléphone</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
+          {/* Section spécifique Élève */}
+          {role === "client" && (
+            <div className="pt-2 border-t border-slate-800/80">
+              <p className="text-[11px] font-bold uppercase text-amber-400 mb-2">Données physiques</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Âge</label>
+                  <input
+                    type="number"
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Taille (cm)</label>
+                  <input
+                    type="number"
+                    value={height}
+                    onChange={(e) => setHeight(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Poids (kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Section spécifique Coach */}
+          {role === "coach" && (
+            <div className="pt-2 border-t border-slate-800/80 space-y-3">
+              <p className="text-[11px] font-bold uppercase text-amber-400">Profil Professionnel</p>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Domaines de compétence</label>
+                <input
+                  type="text"
+                  value={specialties}
+                  onChange={(e) => setSpecialties(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Diplômes / Certifications</label>
+                  <input
+                    type="text"
+                    value={certifications}
+                    onChange={(e) => setCertifications(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Années d'expérience</label>
+                  <input
+                    type="number"
+                    value={yearsExperience}
+                    onChange={(e) => setYearsExperience(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Bio / Présentation</label>
+                <textarea
+                  rows={3}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-400 resize-none"
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Email (non modifiable)</label>
             <input
               type="email"
@@ -149,7 +282,7 @@ export default function ProfilePage() {
           <button
             type="submit"
             disabled={saving}
-            className="w-full py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all mt-4"
+            className="w-full py-3.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all mt-4"
           >
             <Save className="w-4 h-4" />
             <span>{saving ? "ENREGISTREMENT..." : "ENREGISTRER LES MODIFICATIONS"}</span>
