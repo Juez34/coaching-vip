@@ -62,14 +62,14 @@ export default function StudentWorkout() {
     const formattedCoaches = (coachesData || []).map(c => c.profiles);
     setMyCoaches(formattedCoaches);
 
-    // 2. Charger tous les programmes (du coach sélectionné ou créés par soi-même)
+    // 2. Charger les programmes (destinés à cet élève, créés par ses coachs ou par lui-même)
     let query = supabase.from("programs").select("*");
     
     if (formattedCoaches.length > 0) {
       const coachIds = formattedCoaches.map(c => c.id);
-      query = query.or(`coach_id.in.(${coachIds.join(",")}),user_id.eq.${userId}`);
+      query = query.or(`student_id.eq.${userId},coach_id.in.(${coachIds.join(",")}),user_id.eq.${userId}`);
     } else {
-      query = query.eq("user_id", userId);
+      query = query.or(`student_id.eq.${userId},user_id.eq.${userId}`);
     }
 
     const { data: programData } = await query;
