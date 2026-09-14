@@ -22,7 +22,7 @@ export default function Login() {
 
     try {
       if (isSignUp) {
-        // INSCRIPTION avec envoi du rôle dans metadata pour le Trigger
+        // INSCRIPTION avec envoi du rôle dans les métadonnées (pour le Trigger SQL)
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -49,12 +49,16 @@ export default function Login() {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Récupération du rôle dans profiles
-        const { data: profile } = await supabase
+        // Récupération stricte du rôle dans la table profiles
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", data.user.id)
-          .maybeSingle();
+          .single();
+
+        if (profileError) {
+          console.error("Erreur de récupération du profil:", profileError);
+        }
 
         const userRole = profile?.role || "client";
         redirectUser(userRole);
@@ -114,26 +118,32 @@ export default function Login() {
 
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Email</label>
-            <input
-              type="email"
-              placeholder="exemple@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3 text-sm text-white focus:outline-none focus:border-amber-400"
-              required
-            />
+            <div className="relative">
+              <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+              <input
+                type="email"
+                placeholder="exemple@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-amber-400"
+                required
+              />
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Mot de passe</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3 text-sm text-white focus:outline-none focus:border-amber-400"
-              required
-            />
+            <div className="relative">
+              <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-amber-400"
+                required
+              />
+            </div>
           </div>
 
           <button
