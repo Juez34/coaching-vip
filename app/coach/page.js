@@ -12,19 +12,53 @@ export default function CoachDashboard() {
     fetchStudents();
   }, []);
 
+  // Fonction pour calculer l'âge dynamique à partir de la date de naissance
+  const calculateAge = (dateString) => {
+    if (!dateString) return null;
+    const today = new Date();
+    const birth = new Date(dateString);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   const fetchStudents = async () => {
     try {
       setLoading(true);
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return;
 
-      const { data, error } = await supabase
+      // 1. Récupération des élèves liés dans student_coaches
+      const { data: multiCoachData, error: multiCoachError } = await supabase
+        .from("student_coaches")
+        .select("student_id, profiles!student_coaches_student_id_fkey(*)")
+        .eq("coach_id", user.user.id);
+
+      if (multiCoachError) throw multiCoachError;
+
+      // Extraire les profils
+      let studentList = (multiCoachData || []).map((item) => item.profiles).filter(Boolean);
+
+      // 2. Repli / Rétrocompatibilité : Récupération des élèves ayant coach_id direct
+      const { data: directData, error: directError } = await supabase
         .from("profiles")
         .select("*")
         .eq("coach_id", user.user.id);
 
-      if (error) throw error;
-      setStudents(data || []);
+      if (!directError && directData) {
+        // Fusionner en évitant les doublons
+        const existingIds = new Set(studentList.map((s) => s.id));
+        directData.forEach((st) => {
+          if (!existingIds.has(st.id)) {
+            studentList.push(st);
+          }
+        });
+      }
+
+      setStudents(studentList);
     } catch (err) {
       console.error("Erreur de chargement des élèves:", err);
     } finally {
@@ -67,7 +101,7 @@ export default function CoachDashboard() {
             <span>Créer un Programme</span>
           </Link>
 
-          {/* Menu utilisateur */}
+          {/* Menu Utilisateur */}
           <Link
             href="/profile"
             className="text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors shrink-0"
@@ -99,20 +133,44 @@ export default function CoachDashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {students.map((st) => (
-              <div key={st.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-bold text-white">{st.full_name || "Élève"}</h3>
-                    <p className="text-xs text-slate-400">{st.email}</p>
+            {students.map((st) => {
+              const age = calculateAge(st.birth_date);
+              return (
+                <div key={st.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-white">{st.full_name || "Élève"}</h3>
+                      <p className="text-xs text-slate-400">{st.email}</p>
+                    </div>
+                    <span className="text-[10px] bg-amber-400/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-400/20 font-bold uppercase">
+                      Actif
+                    </span>
                   </div>
-                  <span className="text-[10px] bg-amber-400/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-400/20 font-bold uppercase">
-                    Actif
-                  </span>
+
+                  {/* Informations de contact & métriques */}
+                  <div className="space-y-1 text-xs text-slate-400 pt-2 border-t border-slate-800/60">
+                    {st.phone && <p>📞 {st.phone}</p>}
+                    <div className="flex flex-wrap gap-2 text-[11px] text-slate-300 mt-2">
+                      {age !== null && (
+                        <span className="bg-slate-950 px-2 py-1 rounded-md border border-slate-800">
+                          🎂 {age} ans
+                        </span>
+                      )}
+                      {st.height && (
+                        <span className="bg-slate-950 px-2 py-1 rounded-md border border-slate-800">
+                          📏 {st.height} cm
+                        </span>
+                      )}
+                      {st.weight && (
+                        <span className="bg-slate-950 px-2 py-1 rounded-md border border-slate-800">
+                          ⚖️ {st.weight} kg
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                {st.phone && <p className="text-xs text-slate-400">Tél : {st.phone}</p>}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
