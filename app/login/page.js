@@ -22,26 +22,24 @@ export default function Login() {
 
     try {
       if (isSignUp) {
-        // INSCRIPTION
-       const { data, error } = await supabase.auth.signUp({
-  email,
-  password,
-  options: {
-    data: {
-      role: role // Transmet 'coach' ou 'client'
-    }
-  }
-});
+        // INSCRIPTION avec envoi du rôle dans metadata pour le Trigger
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { role: role }
+          }
+        });
         if (error) throw error;
 
+        // Sécurité de secours : insertion directe dans profiles
         if (data.user) {
-          const { error: profileError } = await supabase.from("profiles").upsert([
+          await supabase.from("profiles").upsert([
             {
               id: data.user.id,
               role: role,
             },
           ]);
-          if (profileError) console.error("Erreur profil:", profileError);
         }
 
         alert("Compte créé avec succès ! Tu peux maintenant te connecter.");
@@ -51,7 +49,7 @@ export default function Login() {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // On récupère le profil
+        // Récupération du rôle dans profiles
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
@@ -59,8 +57,6 @@ export default function Login() {
           .maybeSingle();
 
         const userRole = profile?.role || "client";
-        
-        // Redirection directe vers le bon espace
         redirectUser(userRole);
       }
     } catch (err) {
