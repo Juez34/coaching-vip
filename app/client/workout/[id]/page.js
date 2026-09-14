@@ -191,7 +191,7 @@ export default function WorkoutSessionPage() {
                           onClick={() => toggleSetCheck(ex.id, setIdx)}
                           className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${isDone ? "bg-amber-400 text-slate-950 border-amber-400" : "bg-slate-900 text-slate-400 border-slate-700"}`}
                         >
-                          <Check className="w-3.5 h-3.5" /> {isDone ? "Validée" validee="true" : "Valider"}
+                          <Check className="w-3.5 h-3.5" /> {isDone ? "Validée" : "Valider"}
                         </button>
                       </div>
 
