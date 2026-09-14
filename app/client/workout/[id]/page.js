@@ -1,121 +1,93 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
-import { Check, ArrowLeft, Timer, Pause, Play, RotateCcw, Loader2, ChevronRight, MessageSquare, Dumbbell } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, Clock, History, Plus, Dumbbell } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-export default function WorkoutSessionPage() {
+export default function CoachStudentDetailPage() {
   const params = useParams();
-  const programId = params?.id;
+  const studentId = params?.id;
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [program, setProgram] = useState(null);
-  const [exercises, setExercises] = useState([]);
-  
-  // État de la session active
-  const [isStarted, setIsStarted] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-
-  // Performances réelles saisies par l'élève : { [exerciseId_setIndex]: { reps, weight } }
-  const [actualPerformances, setActualPerformances] = useState({});
-  const [completedSets, setCompletedSets] = useState({});
-  const [studentComment, setStudentComment] = useState("");
+  const [student, setStudent] = useState(null);
+  const [programs, setPrograms] = useState([]);
+  const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    if (programId) fetchWorkout();
-  }, [programId]);
-
-  useEffect(() => {
-    let interval = null;
-    if (isTimerRunning) {
-      interval = setInterval(() => setTimerSeconds((p) => p + 1), 1000);
-    } else {
-      clearInterval(interval);
+    if (studentId) {
+      fetchStudentDetails();
     }
-    return () => clearInterval(interval);
-  }, [isTimerRunning]);
+  }, [studentId]);
 
-  const formatTime = (sec) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  const calculateAge = (dateString) => {
+    if (!dateString) return null;
+    const today = new Date();
+    const birth = new Date(dateString);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
   };
 
-  const fetchWorkout = async () => {
+  const fetchStudentDetails = async () => {
     try {
       setLoading(true);
-      const { data: prog } = await supabase.from("programs").select("*").eq("id", programId).single();
-      setProgram(prog);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      const { data: exList } = await supabase.from("exercises").select("*").eq("program_id", programId).order("order_index", { ascending: true });
-      setExercises(exList || []);
+      // 1. Profil de l'élève
+      const { data: studentData, error: studentErr } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", studentId)
+        .single();
 
-      // Initialiser les valeurs par défaut avec les objectifs initiaux
-      const initialPerf = {};
-      (exList || []).forEach((ex) => {
-        for (let i = 0; i < ex.sets; i++) {
-          initialPerf[`${ex.id}-${i}`] = {
-            reps: ex.reps || "",
-            weight: ex.target_weight || ""
-          };
-        }
-      });
-      setActualPerformances(initialPerf);
+      if (studentErr) throw studentErr;
+      setStudent(studentData);
+
+      // 2. Programmes assignés à cet élève par ce coach
+      const { data: progData } = await supabase
+        .from("programs")
+        .select("*, exercises(*)")
+        .or(`student_id.eq.${studentId},user_id.eq.${studentId}`)
+        .eq("coach_id", user.id);
+
+      setPrograms(progData || []);
+
+      // 3. Historique des séances réalisées
+      const progIds = (progData || []).map((p) => p.id);
+      if (progIds.length > 0) {
+        const { data: logsData } = await supabase
+          .from("workout_logs")
+          .select("*, programs(title)")
+          .in("program_id", progIds)
+          .order("created_at", { ascending: false });
+
+        setHistory(logsData || []);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Erreur de chargement:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const startWorkout = () => {
-    setIsStarted(true);
-    setIsTimerRunning(true);
-  };
+  const handleDeleteAssignedProgram = async (programId) => {
+    const confirmDelete = confirm("Voulez-vous supprimer ce programme pour cet élève ?");
+    if (!confirmDelete) return;
 
-  const toggleSetCheck = (exId, setIdx) => {
-    const key = `${exId}-${setIdx}`;
-    setCompletedSets((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handlePerfChange = (exId, setIdx, field, value) => {
-    const key = `${exId}-${setIdx}`;
-    setActualPerformances((prev) => ({
-      ...prev,
-      [key]: {
-        ...(prev[key] || {}),
-        [field]: value
-      }
-    }));
-  };
-
-  const handleFinishWorkout = async () => {
-    setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const { error } = await supabase.from("workout_logs").insert([
-        {
-          program_id: programId,
-          user_id: user.id,
-          duration_seconds: timerSeconds,
-          completed_sets: completedSets,
-          actual_performances: actualPerformances,
-          student_comment: studentComment,
-          status: "completed"
-        }
-      ]);
-
+      await supabase.from("exercises").delete().eq("program_id", programId);
+      const { error } = await supabase.from("programs").delete().eq("id", programId);
       if (error) throw error;
-      alert("Séance enregistrée avec succès ! 💪");
-      window.location.href = "/client";
+
+      setPrograms(programs.filter(p => p.id !== programId));
+      alert("Programme supprimé avec succès.");
     } catch (err) {
-      alert("Erreur lors de l'enregistrement : " + err.message);
-    } finally {
-      setSaving(false);
+      alert("Erreur lors de la suppression : " + err.message);
     }
   };
 
@@ -127,129 +99,119 @@ export default function WorkoutSessionPage() {
     );
   }
 
+  const age = calculateAge(student?.birth_date);
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-2xl mx-auto pb-24">
-      <Link href="/client" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-4">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-4xl mx-auto pb-24">
+      <Link href="/coach" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6">
         <ArrowLeft className="w-4 h-4" />
-        <span>Retour aux séances</span>
+        <span>Retour au tableau de bord</span>
       </Link>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4 mb-6">
+      {/* En-tête de l'élève */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
-            Détails de la séance
+            Fiche Élève
           </span>
-          <h1 className="text-2xl font-black text-white mt-2">{program?.title}</h1>
-          {program?.coach_note && (
-            <p className="text-xs text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-800 mt-2">
-              💡 <span className="font-bold text-amber-400">Note du coach :</span> {program.coach_note}
+          <h1 className="text-2xl font-black text-white mt-2">{student?.full_name || "Élève"}</h1>
+          <p className="text-xs text-slate-400">{student?.email} • {student?.phone || "Pas de téléphone"}</p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 text-xs">
+          {age !== null && <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">🎂 {age} ans</span>}
+          {student?.height && <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">📏 {student.height} cm</span>}
+          {student?.weight && <span className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">⚖️ {student.weight} kg</span>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* SÉANCES ATTRIBUÉES */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-amber-400" />
+              <span>Programmes assignés ({programs.length})</span>
+            </h3>
+            <Link href="/coach/new-program" className="text-xs font-bold text-amber-400 hover:underline flex items-center gap-1">
+              <Plus className="w-3.5 h-3.5" /> Assigner
+            </Link>
+          </div>
+
+          {programs.length === 0 ? (
+            <p className="text-xs text-slate-500 italic bg-slate-950 p-3 rounded-xl border border-slate-800">
+              Aucun programme assigné pour le moment.
             </p>
+          ) : (
+            <div className="space-y-2">
+              {programs.map((prog) => (
+                <div key={prog.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                  <div>
+                    <span className="font-bold text-white block">{prog.title}</span>
+                    <span className="text-[10px] text-slate-400">{prog.exercises?.length || 0} exercice(s)</span>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteAssignedProgram(prog.id)}
+                    className="text-slate-500 hover:text-rose-400 p-1.5 transition-colors"
+                    title="Supprimer ce programme"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
-        {!isStarted ? (
-          <button
-            onClick={startWorkout}
-            className="w-full py-4 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm rounded-xl shadow-xl flex items-center justify-center gap-2 transition-all mt-4"
-          >
-            <Play className="w-5 h-5 fill-slate-950" />
-            <span>COMMENCER L'ENTRAÎNEMENT</span>
-          </button>
-        ) : (
-          <div className="bg-slate-950 border border-amber-400/30 rounded-xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Timer className="w-5 h-5 text-amber-400 animate-pulse" />
-              <span className="text-2xl font-black font-mono text-white">{formatTime(timerSeconds)}</span>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setIsTimerRunning(!isTimerRunning)} className="px-3 py-1.5 bg-slate-800 rounded-lg text-xs font-bold">
-                {isTimerRunning ? "Pause" : "Reprendre"}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+        {/* HISTORIQUE ET EXÉCUTIONS */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <History className="w-4 h-4 text-emerald-400" />
+            <span>Historique des entraînements ({history.length})</span>
+          </h3>
 
-      {/* LISTE DES EXERCICES (Modifiable si démarré) */}
-      {isStarted && (
-        <div className="space-y-4">
-          {exercises.map((ex) => (
-            <div key={ex.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-              <h3 className="font-bold text-base text-white">{ex.name}</h3>
-              
-              <div className="space-y-2">
-                {Array.from({ length: ex.sets }).map((_, setIdx) => {
-                  const key = `${ex.id}-${setIdx}`;
-                  const isDone = completedSets[key];
-                  const perf = actualPerformances[key] || {};
+          {history.length === 0 ? (
+            <p className="text-xs text-slate-500 italic bg-slate-950 p-3 rounded-xl border border-slate-800">
+              Aucune séance terminée par cet élève.
+            </p>
+          ) : (
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              {history.map((log) => (
+                <div key={log.id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      {log.programs?.title || "Séance"}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      ⏱️ {Math.floor((log.duration_seconds || 0) / 60)} min
+                    </span>
+                  </div>
 
-                  return (
-                    <div key={setIdx} className={`p-3 rounded-xl border transition-all ${isDone ? "bg-amber-400/10 border-amber-400/50" : "bg-slate-950 border-slate-800"}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold uppercase text-slate-400">Série {setIdx + 1}</span>
-                        <button
-                          onClick={() => toggleSetCheck(ex.id, setIdx)}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${isDone ? "bg-amber-400 text-slate-950 border-amber-400" : "bg-slate-900 text-slate-400 border-slate-700"}`}
-                        >
-                          <Check className="w-3.5 h-3.5" /> {isDone ? "Validée" : "Valider"}
-                        </button>
-                      </div>
+                  {log.student_comment && (
+                    <p className="text-[11px] text-amber-300 bg-amber-400/10 p-2 rounded-lg border border-amber-400/20 italic">
+                      💬 "{log.student_comment}"
+                    </p>
+                  )}
 
-                      {/* Inputs modifiables pour poids et reps réels */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[9px] uppercase text-slate-400 mb-0.5">Reps réalisées</label>
-                          <input
-                            type="text"
-                            value={perf.reps}
-                            onChange={(e) => handlePerfChange(ex.id, setIdx, "reps", e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2 text-xs text-white"
-                            placeholder={ex.reps}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] uppercase text-slate-400 mb-0.5">Poids réel (kg)</label>
-                          <input
-                            type="text"
-                            value={perf.weight}
-                            onChange={(e) => handlePerfChange(ex.id, setIdx, "weight", e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2 text-xs text-white"
-                            placeholder={ex.target_weight}
-                          />
-                        </div>
+                  {log.actual_performances && (
+                    <div className="text-[10px] text-slate-400 space-y-1 pt-1 border-t border-slate-900">
+                      <span className="font-bold text-slate-300 uppercase">Performances réelles :</span>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(log.actual_performances).map(([k, p], i) => (
+                          <span key={i} className="bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                            {p.reps} reps @ {p.weight}
+                          </span>
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-
-          {/* Commentaire de fin de séance */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
-            <label className="block text-xs font-bold uppercase text-slate-400 flex items-center gap-1.5">
-              <MessageSquare className="w-4 h-4 text-amber-400" />
-              <span>Commentaire pour le coach</span>
-            </label>
-            <textarea
-              rows={2}
-              value={studentComment}
-              onChange={(e) => setStudentComment(e.target.value)}
-              placeholder="Ex: Super séance, un peu dur sur la fin du développé couché..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white resize-none focus:outline-none focus:border-amber-400"
-            />
-          </div>
-
-          <button
-            onClick={handleFinishWorkout}
-            disabled={saving}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 mt-6 transition-all"
-          >
-            <span>{saving ? "ENREGISTREMENT..." : "TERMINER ET ENVOYER AU COACH"}</span>
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
