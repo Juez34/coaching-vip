@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
-  Check, Play, Dumbbell, UserCheck, LogOut, ChevronRight, 
-  Star, Search, User, Plus, Loader2, Sparkles, BookOpen 
+  Check, Play, Pause, RotateCcw, Dumbbell, UserCheck, LogOut, ChevronRight, 
+  Star, Search, User, Plus, Loader2, Timer
 } from "lucide-react";
 import Link from "next/link";
 
@@ -13,10 +13,13 @@ export default function StudentWorkout() {
 
   // État des programmes et coachs
   const [myCoaches, setMyCoaches] = useState([]);
-  const [selectedCoachId, setSelectedCoachId] = useState(null);
   const [programs, setPrograms] = useState([]);
   const [activeProgramIndex, setActiveProgramIndex] = useState(0);
   const [completedSets, setCompletedSets] = useState({});
+
+  // Chronomètre de séance
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   // Recherche & Ajout de Coach
   const [showCoachSearch, setShowCoachSearch] = useState(false);
@@ -36,6 +39,38 @@ export default function StudentWorkout() {
     initStudentData();
   }, []);
 
+  // Gestion du chronomètre
+  useEffect(() => {
+    let interval = null;
+    if (isTimerRunning) {
+      interval = setInterval(() => {
+        setTimerSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning]);
+
+  const formatTime = (totalSeconds) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const startWorkoutTimer = () => {
+    setIsTimerRunning(true);
+  };
+
+  const pauseWorkoutTimer = () => {
+    setIsTimerRunning(false);
+  };
+
+  const resetWorkoutTimer = () => {
+    setIsTimerRunning(false);
+    setTimerSeconds(0);
+  };
+
   const initStudentData = async () => {
     try {
       setLoading(true);
@@ -53,7 +88,6 @@ export default function StudentWorkout() {
   };
 
   const loadCoachesAndPrograms = async (userId) => {
-    // 1. Charger les coachs associés à l'élève
     const { data: coachesData } = await supabase
       .from("student_coaches")
       .select("coach_id, profiles!student_coaches_coach_id_fkey(id, full_name, email)")
@@ -62,7 +96,6 @@ export default function StudentWorkout() {
     const formattedCoaches = (coachesData || []).map(c => c.profiles);
     setMyCoaches(formattedCoaches);
 
-    // 2. Charger les programmes (destinés à cet élève, créés par ses coachs ou par lui-même)
     let query = supabase.from("programs").select("*");
     
     if (formattedCoaches.length > 0) {
@@ -75,7 +108,6 @@ export default function StudentWorkout() {
     const { data: programData } = await query;
 
     if (programData && programData.length > 0) {
-      // Pour chaque programme, charger ses exercices
       const fullPrograms = await Promise.all(
         programData.map(async (prog) => {
           const { data: exData } = await supabase
@@ -109,7 +141,6 @@ export default function StudentWorkout() {
     window.location.replace("/login");
   };
 
-  // Recherche Multi-Critères de Coachs
   const searchCoach = async (query) => {
     setCoachQuery(query);
     if (query.length < 2) return setCoachesSearchResults([]);
@@ -123,13 +154,12 @@ export default function StudentWorkout() {
     setCoachesSearchResults(data || []);
   };
 
-  // Ajouter un coach à sa liste
   const addCoach = async (coachId) => {
     const { error } = await supabase
       .from("student_coaches")
       .insert([{ student_id: currentUserId, coach_id: coachId }]);
 
-    if (error && error.code !== "23505") { // Ignorer si déjà ajouté
+    if (error && error.code !== "23505") {
       alert("Erreur lors de l'ajout du coach.");
     } else {
       alert("Coach ajouté avec succès !");
@@ -138,13 +168,11 @@ export default function StudentWorkout() {
     }
   };
 
-  // Création d'une séance autonome par l'élève
   const handleCreateCustomWorkout = async (e) => {
     e.preventDefault();
     if (!customTitle.trim()) return alert("Merci d'indiquer un titre.");
 
     try {
-      // 1. Créer le programme autonome
       const { data: newProg, error: progErr } = await supabase
         .from("programs")
         .insert([{
@@ -157,7 +185,6 @@ export default function StudentWorkout() {
 
       if (progErr) throw progErr;
 
-      // 2. Insérer les exercices
       const exToInsert = customExercises
         .filter(ex => ex.name.trim() !== "")
         .map((ex, idx) => ({
@@ -190,6 +217,10 @@ export default function StudentWorkout() {
   };
 
   const toggleSet = (exerciseId, setIndex) => {
+    // Si le timer n'est pas lancé, on le démarre au premier clic
+    if (!isTimerRunning && timerSeconds === 0) {
+      setIsTimerRunning(true);
+    }
     const key = `${exerciseId}-${setIndex}`;
     setCompletedSets((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -202,13 +233,18 @@ export default function StudentWorkout() {
       const { error } = await supabase.from("workout_logs").insert([
         {
           program_id: activeProg.id,
-          completed_sets: completedSets
+          completed_sets: completedSets,
+          duration_seconds: timerSeconds
         }
       ]);
       if (error) throw error;
-      alert("Séance enregistrée avec succès ! Bravo 💪");
+      
+      setIsTimerRunning(false);
+      alert(`Séance enregistrée en ${formatTime(timerSeconds)} ! Bravo 💪`);
+      setCompletedSets({});
+      setTimerSeconds(0);
     } catch (err) {
-      alert("Erreur lors de l'enregistrement de la séance.");
+      alert("Erreur lors de l'enregistrement de la séance : " + err.message);
     }
   };
 
@@ -253,7 +289,48 @@ export default function StudentWorkout() {
         </div>
       </header>
 
-      {/* BLOC 1 : Message "Vous n'avez pas choisi de coach" & Gestion des Coachs */}
+      {/* BANDEAU CHRONOMÈTRE D'ENTRAÎNEMENT */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-amber-400/10 border border-amber-400/20 rounded-xl flex items-center justify-center">
+            <Timer className={`w-5 h-5 ${isTimerRunning ? "text-amber-400 animate-pulse" : "text-slate-400"}`} />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase text-slate-400 block">Temps d'entraînement</span>
+            <span className="text-xl font-black font-mono text-white tracking-wider">{formatTime(timerSeconds)}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {!isTimerRunning ? (
+            <button
+              onClick={startWorkoutTimer}
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all"
+            >
+              <Play className="w-4 h-4 fill-slate-950" />
+              <span>Démarrer</span>
+            </button>
+          ) : (
+            <button
+              onClick={pauseWorkoutTimer}
+              className="bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 border border-amber-400/30 transition-all"
+            >
+              <Pause className="w-4 h-4" />
+              <span>Pause</span>
+            </button>
+          )}
+
+          <button
+            onClick={resetWorkoutTimer}
+            className="bg-slate-950 hover:bg-slate-800 text-slate-400 p-2 rounded-xl border border-slate-800 transition-colors"
+            title="Réinitialiser"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Mes Coachs */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 space-y-3">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
@@ -280,7 +357,6 @@ export default function StudentWorkout() {
           </button>
         </div>
 
-        {/* Formulaire / Modal de Recherche de Coach */}
         {showCoachSearch && (
           <div className="pt-3 border-t border-slate-800/80 space-y-4">
             <div>
@@ -299,7 +375,6 @@ export default function StudentWorkout() {
               </div>
             </div>
 
-            {/* Coach à la une */}
             {featuredCoach && coachQuery.length < 2 && (
               <div className="bg-slate-950 border border-amber-400/30 rounded-xl p-3 space-y-2">
                 <span className="text-[10px] font-black uppercase text-amber-400 flex items-center gap-1">
@@ -320,7 +395,6 @@ export default function StudentWorkout() {
               </div>
             )}
 
-            {/* Résultats de recherche */}
             {coachQuery.length >= 2 && (
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {coachesSearchResults.map((c) => (
@@ -343,15 +417,17 @@ export default function StudentWorkout() {
         )}
       </div>
 
-      {/* BLOC 2 : Navigation entre les programmes & Création de séances autonomes */}
+      {/* Onglets Programmes & Création */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-        {/* Onglets de sélection des programmes */}
         {programs.length > 0 ? (
           <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1">
             {programs.map((prog, idx) => (
               <button
                 key={prog.id}
-                onClick={() => setActiveProgramIndex(idx)}
+                onClick={() => {
+                  setActiveProgramIndex(idx);
+                  setCompletedSets({});
+                }}
                 className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${
                   activeProgramIndex === idx
                     ? "bg-amber-400 text-slate-950 border-amber-400 shadow-md"
@@ -366,7 +442,6 @@ export default function StudentWorkout() {
           <span className="text-xs text-slate-400">Aucun programme disponible pour l'instant.</span>
         )}
 
-        {/* Bouton Créer sa propre séance */}
         <button
           onClick={() => setShowCustomModal(true)}
           className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 border border-slate-800 transition-all shrink-0"
@@ -376,7 +451,7 @@ export default function StudentWorkout() {
         </button>
       </div>
 
-      {/* BLOC 3 : Contenu du programme actif */}
+      {/* Programme actif */}
       {currentProgram ? (
         <main className="space-y-5 max-w-2xl mx-auto">
           {currentProgram.coach_note && (
@@ -398,8 +473,18 @@ export default function StudentWorkout() {
                     Objectif : <span className="text-amber-400 font-semibold">{ex.target_weight}</span> • {ex.reps} reps
                   </p>
                 </div>
-                <button className="p-2 bg-amber-400/10 border border-amber-400/20 hover:bg-amber-400/20 rounded-xl text-amber-400 transition-colors">
-                  <Play className="w-4 h-4 fill-amber-400" />
+                
+                {/* BOUTON PLAY PAR EXERCICE : LANCE LE CHRONO ET DÉMARRE LA SÉANCE */}
+                <button
+                  onClick={startWorkoutTimer}
+                  className={`p-2 rounded-xl transition-all border ${
+                    isTimerRunning
+                      ? "bg-amber-400 text-slate-950 border-amber-400 shadow-md"
+                      : "bg-amber-400/10 border-amber-400/20 hover:bg-amber-400/20 text-amber-400"
+                  }`}
+                  title="Lancer le chrono"
+                >
+                  <Play className={`w-4 h-4 ${isTimerRunning ? "fill-slate-950" : "fill-amber-400"}`} />
                 </button>
               </div>
 
@@ -440,7 +525,7 @@ export default function StudentWorkout() {
             onClick={saveWorkout}
             className="w-full py-3.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] mt-6"
           >
-            <span>TERMINER LA SÉANCE</span>
+            <span>TERMINER LA SÉANCE ({Object.keys(completedSets).filter(k => completedSets[k]).length} SÉRIES COCHÉES)</span>
             <ChevronRight className="w-5 h-5" />
           </button>
         </main>
