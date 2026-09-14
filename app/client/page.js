@@ -17,7 +17,7 @@ export default function StudentWorkout() {
     fetchWorkoutData();
   }, []);
 
-  const fetchWorkoutData = async () => {
+const fetchWorkoutData = async () => {
     try {
       setLoading(true);
       const { data: programData, error: programError } = await supabase
@@ -46,7 +46,7 @@ export default function StudentWorkout() {
       }
     } catch (err) {
       console.error("Erreur de chargement:", err);
-    } fontally {
+    } finally {
       setLoading(false);
     }
   };
