@@ -52,20 +52,27 @@ export default function StudentWorkout() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.replace("/login");
   };
 
   const searchCoach = async (query) => {
     setCoachQuery(query);
     if (query.length < 2) return setCoaches([]);
 
-    const { data } = await supabase
+    // Recherche par nom, email ou ID
+    const { data, error } = await supabase
       .from("profiles")
-      .select("id")
+      .select("id, full_name, email")
       .eq("role", "coach")
-      .ilike("id", `%${query}%`);
+      .or(`full_name.ilike.%${query}%,email.ilike.%${query}%,id.ilike.%${query}%`);
 
-    setCoaches(data || []);
+    if (error) {
+      console.error("Erreur de recherche:", error);
+    } else {
+      setCoaches(data || []);
+    }
   };
 
   const selectCoach = async (coachId) => {
@@ -119,7 +126,7 @@ export default function StudentWorkout() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-6xl mx-auto pb-20">
-      {/* En-tête identique aux espaces Coach et Admin */}
+      {/* En-tête harmonisé */}
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-slate-800">
         <div>
           <span className="text-[11px] font-extrabold tracking-widest text-amber-400 uppercase bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20 shadow-sm inline-block mb-2">
@@ -141,7 +148,6 @@ export default function StudentWorkout() {
         </button>
       </header>
 
-      {/* Contenu de la séance optimisé mobile (max-w-md centré) */}
       {!workout ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center text-center max-w-md mx-auto">
           <div className="w-14 h-14 bg-amber-400/10 border border-amber-400/20 rounded-2xl flex items-center justify-center mb-4">
@@ -163,30 +169,36 @@ export default function StudentWorkout() {
           {showCoachSearch && (
             <div className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 text-left">
               <label className="block text-xs font-bold uppercase text-slate-400">
-                Rechercher ton coach (ID)
+                Rechercher un coach par nom ou email
               </label>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                 <input
                   type="text"
-                  placeholder="Tape l'ID de ton coach..."
+                  placeholder="Tape le nom ou l'email..."
                   value={coachQuery}
                   onChange={(e) => searchCoach(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-amber-400"
                 />
               </div>
-              <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {coaches.map((c) => (
-                  <div key={c.id} className="flex justify-between items-center p-2 bg-slate-900 rounded-lg border border-slate-800">
-                    <span className="text-xs font-mono text-slate-300 truncate max-w-[180px]">{c.id}</span>
+                  <div key={c.id} className="flex justify-between items-center p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                    <div className="flex flex-col truncate max-w-[180px]">
+                      <span className="text-xs font-bold text-white">{c.full_name || "Coach"}</span>
+                      <span className="text-[10px] text-slate-400 truncate">{c.email || c.id}</span>
+                    </div>
                     <button
                       onClick={() => selectCoach(c.id)}
-                      className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-md"
+                      className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-md shrink-0"
                     >
                       Sélectionner
                     </button>
                   </div>
                 ))}
+                {coachQuery.length >= 2 && coaches.length === 0 && (
+                  <p className="text-xs text-slate-500 text-center py-2">Aucun coach trouvé.</p>
+                )}
               </div>
             </div>
           )}
