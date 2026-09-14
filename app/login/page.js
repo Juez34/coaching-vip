@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { Dumbbell, ArrowRight, Lock, Mail, Phone, Award, Sparkles, User } from "lucide-react";
+import { Dumbbell, ArrowRight, Lock, Mail, Phone, Calendar } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -11,12 +11,11 @@ export default function Login() {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   
-  // Champs spécifiques Élève
-  const [age, setAge] = useState("");
+  // Remplacement de l'âge par la date de naissance
+  const [birthDate, setBirthDate] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
 
-  // Champs spécifiques Coach
   const [specialties, setSpecialties] = useState("");
   const [certifications, setCertifications] = useState("");
   const [yearsExperience, setYearsExperience] = useState("");
@@ -47,7 +46,6 @@ export default function Login() {
       if (isSignUp) {
         const fullName = `${firstName} ${lastName}`.trim();
         
-        // Construction des métadonnées dynamiques selon le rôle
         const profileData = {
           role: role,
           first_name: firstName,
@@ -57,7 +55,7 @@ export default function Login() {
         };
 
         if (role === "client") {
-          profileData.age = age ? parseInt(age) : null;
+          profileData.birth_date = birthDate || null; // Utilisation de birth_date
           profileData.height = height ? parseFloat(height) : null;
           profileData.weight = weight ? parseFloat(weight) : null;
         } else if (role === "coach") {
@@ -130,7 +128,6 @@ export default function Login() {
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
             <>
-              {/* Choix du Rôle */}
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Je m'inscris en tant que :</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -155,7 +152,6 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Nom & Prénom (Communs) */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Prénom *</label>
@@ -181,7 +177,6 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Téléphone (Commun) */}
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Téléphone *</label>
                 <div className="relative">
@@ -197,19 +192,18 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* CHAMPS SPÉCIFIQUES ÉLÈVE */}
+              {/* CHAMPS SPÉCIFIQUES ÉLÈVE AVEC DATE DE NAISSANCE */}
               {role === "client" && (
                 <div className="pt-2 border-t border-slate-800/60">
                   <p className="text-[11px] font-bold uppercase text-amber-400/80 mb-2">Informations physiques (facultatif)</p>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Âge</label>
+                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Né(e) le</label>
                       <input
-                        type="number"
-                        placeholder="25"
-                        value={age}
-                        onChange={(e) => setAge(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                        type="date"
+                        value={birthDate}
+                        onChange={(e) => setBirthDate(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-[11px] text-white focus:outline-none focus:border-amber-400"
                       />
                     </div>
                     <div>
@@ -241,19 +235,17 @@ export default function Login() {
               {role === "coach" && (
                 <div className="pt-2 border-t border-slate-800/60 space-y-3">
                   <p className="text-[11px] font-bold uppercase text-amber-400/80">Profil Professionnel Coach</p>
-                  
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Domaines de compétence / Spécialités *</label>
                     <input
                       type="text"
-                      placeholder="Prise de masse, Perte de gras, HIIT, Cross-training..."
+                      placeholder="Prise de masse, Perte de gras..."
                       value={specialties}
                       onChange={(e) => setSpecialties(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-amber-400"
                       required
                     />
                   </div>
-
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Diplômes / Certifications</label>
@@ -276,11 +268,10 @@ export default function Login() {
                       />
                     </div>
                   </div>
-
                   <div>
                     <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Présentation / Bio (facultatif)</label>
                     <textarea
-                      placeholder="Présente ta philosophie de coaching en quelques lignes..."
+                      placeholder="Présente ta philosophie de coaching..."
                       rows={2}
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
@@ -292,7 +283,6 @@ export default function Login() {
             </>
           )}
 
-          {/* Email */}
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Email *</label>
             <div className="relative">
@@ -308,7 +298,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Mot de passe */}
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Mot de passe *</label>
             <div className="relative">
@@ -324,7 +313,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Confirmation du Mot de passe */}
           {isSignUp && (
             <div>
               <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Confirmer le mot de passe *</label>
@@ -342,7 +330,6 @@ export default function Login() {
             </div>
           )}
 
-          {/* Acceptation des conditions */}
           {isSignUp && (
             <div className="flex items-start gap-2 pt-2">
               <input
