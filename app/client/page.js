@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { Check, Flame, Play, Dumbbell, Calendar, User, Loader2, Search, UserCheck, LogOut, ChevronRight, Star, Award, Phone } from "lucide-react";
+import Link from "next/link";
 
 export default function StudentWorkout() {
   const [workout, setWorkout] = useState(null);
@@ -52,7 +53,6 @@ export default function StudentWorkout() {
     }
   };
 
-  // Récupération automatique du coach à la une (Pauline)
   const fetchFeaturedCoach = async () => {
     const { data } = await supabase
       .from("profiles")
@@ -72,7 +72,6 @@ export default function StudentWorkout() {
     window.location.replace("/login");
   };
 
-  // Recherche multi-critères : Nom, Email, Téléphone, Compétences
   const searchCoach = async (query) => {
     setCoachQuery(query);
     if (query.length < 2) return setCoaches([]);
@@ -152,14 +151,24 @@ export default function StudentWorkout() {
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Suivi de tes séances et entraînements.</p>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors shrink-0"
-          title="Déconnexion"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Déconnexion</span>
-        </button>
+        {/* Menu utilisateur */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/profile"
+            className="text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors shrink-0"
+          >
+            <User className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">Mon Profil</span>
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors shrink-0"
+            title="Déconnexion"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Déconnexion</span>
+          </button>
+        </div>
       </header>
 
       {!workout ? (
@@ -190,7 +199,7 @@ export default function StudentWorkout() {
                   <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                   <input
                     type="text"
-                    placeholder="Nom, mail, téléphone, spécialité (ex: Perte de poids)..."
+                    placeholder="Nom, mail, téléphone, spécialité..."
                     value={coachQuery}
                     onChange={(e) => searchCoach(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-amber-400"
@@ -198,7 +207,6 @@ export default function StudentWorkout() {
                 </div>
               </div>
 
-              {/* SUGGESTION : COACH À LA UNE (PAULINE) */}
               {featuredCoach && coachQuery.length < 2 && (
                 <div className="space-y-2">
                   <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
@@ -230,7 +238,6 @@ export default function StudentWorkout() {
                 </div>
               )}
 
-              {/* RÉSULTATS DE RECHERCHE DYNAMIQUE */}
               {coachQuery.length >= 2 && (
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                   {coaches.map((c) => (
