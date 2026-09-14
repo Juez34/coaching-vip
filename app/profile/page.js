@@ -1,30 +1,41 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { User, Mail, Trash2, Save, ArrowLeft, Loader2, Phone, Award, Activity } from "lucide-react";
+import { User, Mail, Trash2, Save, ArrowLeft, Loader2, Phone, Award } from "lucide-react";
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState(null);
   
-  // Champs communs
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("");
 
-  // Champs spécifiques Élève
-  const [age, setAge] = useState("");
+  // Remplacement de l'âge par la date de naissance
+  const [birthDate, setBirthDate] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
 
-  // Champs spécifiques Coach
   const [specialties, setSpecialties] = useState("");
   const [certifications, setCertifications] = useState("");
   const [yearsExperience, setYearsExperience] = useState("");
   const [bio, setBio] = useState("");
+
+  // Calcul automatique de l'âge
+  const calculateAge = (dateString) => {
+    if (!dateString) return null;
+    const today = new Date();
+    const birth = new Date(dateString);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
 
   useEffect(() => {
     loadProfile();
@@ -50,8 +61,7 @@ export default function ProfilePage() {
         setPhone(profile.phone || "");
         setRole(profile.role || "client");
 
-        // Chargement des données selon le rôle
-        setAge(profile.age || "");
+        setBirthDate(profile.birth_date || "");
         setHeight(profile.height || "");
         setWeight(profile.weight || "");
 
@@ -80,7 +90,7 @@ export default function ProfilePage() {
     };
 
     if (role === "client") {
-      updates.age = age ? parseInt(age) : null;
+      updates.birth_date = birthDate || null;
       updates.height = height ? parseFloat(height) : null;
       updates.weight = weight ? parseFloat(weight) : null;
     } else if (role === "coach") {
@@ -110,11 +120,9 @@ export default function ProfilePage() {
     if (!confirmation) return;
 
     try {
-      // Suppression de la ligne dans la table profiles
       const { error: profileError } = await supabase.from("profiles").delete().eq("id", userId);
       if (profileError) throw profileError;
 
-      // Déconnexion et nettoyage du cache
       await supabase.auth.signOut();
       localStorage.clear();
       sessionStorage.clear();
@@ -133,6 +141,8 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+  const computedAge = calculateAge(birthDate);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-xl mx-auto pb-12">
@@ -185,18 +195,20 @@ export default function ProfilePage() {
             />
           </div>
 
-          {/* Section spécifique Élève */}
+          {/* Section Élève avec calcul automatique de l'âge */}
           {role === "client" && (
             <div className="pt-2 border-t border-slate-800/80">
-              <p className="text-[11px] font-bold uppercase text-amber-400 mb-2">Données physiques</p>
+              <p className="text-[11px] font-bold uppercase text-amber-400 mb-2">
+                Données physiques {computedAge !== null && `(${computedAge} ans)`}
+              </p>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Âge</label>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Date de naissance</label>
                   <input
-                    type="number"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2 text-[11px] text-white focus:outline-none focus:border-amber-400"
                   />
                 </div>
                 <div>
@@ -222,7 +234,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Section spécifique Coach */}
+          {/* Section Coach */}
           {role === "coach" && (
             <div className="pt-2 border-t border-slate-800/80 space-y-3">
               <p className="text-[11px] font-bold uppercase text-amber-400">Profil Professionnel</p>
@@ -235,7 +247,6 @@ export default function ProfilePage() {
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-amber-400"
                 />
               </div>
-
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Diplômes / Certifications</label>
@@ -256,7 +267,6 @@ export default function ProfilePage() {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Bio / Présentation</label>
                 <textarea
