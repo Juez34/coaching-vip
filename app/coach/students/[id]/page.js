@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect, use } from "react";
-import { supabase } from "../../../../../lib/supabase";
+import React, { useState, useEffect } from "react";
+import { supabase } from "../../../../lib/supabase";
 import { ArrowLeft, Loader2, CheckCircle2, Clock, History, Plus, Dumbbell } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -75,6 +75,22 @@ export default function CoachStudentDetailPage() {
     }
   };
 
+  const handleDeleteAssignedProgram = async (programId) => {
+    const confirmDelete = confirm("Voulez-vous supprimer ce programme pour cet élève ?");
+    if (!confirmDelete) return;
+
+    try {
+      await supabase.from("exercises").delete().eq("program_id", programId);
+      const { error } = await supabase.from("programs").delete().eq("id", programId);
+      if (error) throw error;
+
+      setPrograms(programs.filter(p => p.id !== programId));
+      alert("Programme supprimé avec succès.");
+    } catch (err) {
+      alert("Erreur lors de la suppression : " + err.message);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
@@ -134,6 +150,13 @@ export default function CoachStudentDetailPage() {
                     <span className="font-bold text-white block">{prog.title}</span>
                     <span className="text-[10px] text-slate-400">{prog.exercises?.length || 0} exercice(s)</span>
                   </div>
+                  <button
+                    onClick={() => handleDeleteAssignedProgram(prog.id)}
+                    className="text-slate-500 hover:text-rose-400 p-1.5 transition-colors"
+                    title="Supprimer ce programme"
+                  >
+                    🗑️
+                  </button>
                 </div>
               ))}
             </div>
