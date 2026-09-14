@@ -47,7 +47,7 @@ export default function StudentWorkout() {
       fetchFeaturedCoach();
     } catch (err) {
       console.error("Erreur d'initialisation:", err);
-    } fontinally {
+    } finally {
       setLoading(false);
     }
   };
