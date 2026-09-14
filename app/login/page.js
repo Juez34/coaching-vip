@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { Dumbbell, ArrowRight, Lock, Mail, User, Phone, Activity } from "lucide-react";
+import { Dumbbell, ArrowRight, Lock, Mail, Phone, Award, Sparkles, User } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -10,11 +10,19 @@ export default function Login() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  
+  // Champs spécifiques Élève
   const [age, setAge] = useState("");
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
-  const [agreeTerms, setAgreeTerms] = useState(false);
 
+  // Champs spécifiques Coach
+  const [specialties, setSpecialties] = useState("");
+  const [certifications, setCertifications] = useState("");
+  const [yearsExperience, setYearsExperience] = useState("");
+  const [bio, setBio] = useState("");
+
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [role, setRole] = useState("client");
   const [loading, setLoading] = useState(false);
@@ -38,21 +46,31 @@ export default function Login() {
     try {
       if (isSignUp) {
         const fullName = `${firstName} ${lastName}`.trim();
+        
+        // Construction des métadonnées dynamiques selon le rôle
+        const profileData = {
+          role: role,
+          first_name: firstName,
+          last_name: lastName,
+          full_name: fullName,
+          phone: phone || null,
+        };
+
+        if (role === "client") {
+          profileData.age = age ? parseInt(age) : null;
+          profileData.height = height ? parseFloat(height) : null;
+          profileData.weight = weight ? parseFloat(weight) : null;
+        } else if (role === "coach") {
+          profileData.specialties = specialties || null;
+          profileData.certifications = certifications || null;
+          profileData.years_experience = yearsExperience ? parseInt(yearsExperience) : null;
+          profileData.bio = bio || null;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            data: { 
-              role: role,
-              first_name: firstName,
-              last_name: lastName,
-              full_name: fullName,
-              phone: phone || null,
-              age: age ? parseInt(age) : null,
-              height: height ? parseFloat(height) : null,
-              weight: weight ? parseFloat(weight) : null
-            }
-          }
+          options: { data: profileData }
         });
         if (error) throw error;
 
@@ -60,15 +78,8 @@ export default function Login() {
           await supabase.from("profiles").upsert([
             {
               id: data.user.id,
-              role: role,
               email: email,
-              first_name: firstName,
-              last_name: lastName,
-              full_name: fullName,
-              phone: phone || null,
-              age: age ? parseInt(age) : null,
-              height: height ? parseFloat(height) : null,
-              weight: weight ? parseFloat(weight) : null
+              ...profileData
             },
           ]);
         }
@@ -112,15 +123,16 @@ export default function Login() {
           </div>
           <h1 className="text-xl font-black text-white">COACHING VIP</h1>
           <p className="text-xs text-slate-400 mt-1">
-            {isSignUp ? "Création de ton compte" : "Accède à ton espace personnel"}
+            {isSignUp ? `Création de compte (${role === 'coach' ? 'Coach' : 'Élève'})` : "Accède à ton espace personnel"}
           </p>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
             <>
+              {/* Choix du Rôle */}
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Je suis :</label>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Je m'inscris en tant que :</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -143,7 +155,7 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Nom & Prénom */}
+              {/* Nom & Prénom (Communs) */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Prénom *</label>
@@ -169,7 +181,7 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Téléphone */}
+              {/* Téléphone (Commun) */}
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Téléphone *</label>
                 <div className="relative">
@@ -185,43 +197,98 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Informations physiologiques facultatives */}
-              <div className="pt-2 border-t border-slate-800/60">
-                <p className="text-[11px] font-bold uppercase text-amber-400/80 mb-2">Informations physiques (facultatif)</p>
-                <div className="grid grid-cols-3 gap-2">
+              {/* CHAMPS SPÉCIFIQUES ÉLÈVE */}
+              {role === "client" && (
+                <div className="pt-2 border-t border-slate-800/60">
+                  <p className="text-[11px] font-bold uppercase text-amber-400/80 mb-2">Informations physiques (facultatif)</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Âge</label>
+                      <input
+                        type="number"
+                        placeholder="25"
+                        value={age}
+                        onChange={(e) => setAge(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Taille (cm)</label>
+                      <input
+                        type="number"
+                        placeholder="175"
+                        value={height}
+                        onChange={(e) => setHeight(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Poids (kg)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        placeholder="70"
+                        value={weight}
+                        onChange={(e) => setWeight(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CHAMPS SPÉCIFIQUES COACH */}
+              {role === "coach" && (
+                <div className="pt-2 border-t border-slate-800/60 space-y-3">
+                  <p className="text-[11px] font-bold uppercase text-amber-400/80">Profil Professionnel Coach</p>
+                  
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Âge</label>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Domaines de compétence / Spécialités *</label>
                     <input
-                      type="number"
-                      placeholder="25"
-                      value={age}
-                      onChange={(e) => setAge(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                      type="text"
+                      placeholder="Prise de masse, Perte de gras, HIIT, Cross-training..."
+                      value={specialties}
+                      onChange={(e) => setSpecialties(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-amber-400"
+                      required
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Taille (cm)</label>
-                    <input
-                      type="number"
-                      placeholder="175"
-                      value={height}
-                      onChange={(e) => setHeight(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
-                    />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Diplômes / Certifications</label>
+                      <input
+                        type="text"
+                        placeholder="BPJEPS, STAPS..."
+                        value={certifications}
+                        onChange={(e) => setCertifications(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Années d'expérience</label>
+                      <input
+                        type="number"
+                        placeholder="5"
+                        value={yearsExperience}
+                        onChange={(e) => setYearsExperience(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
                   </div>
+
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Poids (kg)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      placeholder="70"
-                      value={weight}
-                      onChange={(e) => setWeight(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Présentation / Bio (facultatif)</label>
+                    <textarea
+                      placeholder="Présente ta philosophie de coaching en quelques lignes..."
+                      rows={2}
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-400 resize-none"
                     />
                   </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 
@@ -257,7 +324,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Confirmation du Mot de passe (Inscription seulement) */}
+          {/* Confirmation du Mot de passe */}
           {isSignUp && (
             <div>
               <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Confirmer le mot de passe *</label>
@@ -275,7 +342,7 @@ export default function Login() {
             </div>
           )}
 
-          {/* Case à cocher d'acceptation */}
+          {/* Acceptation des conditions */}
           {isSignUp && (
             <div className="flex items-start gap-2 pt-2">
               <input
