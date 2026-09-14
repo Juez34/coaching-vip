@@ -82,28 +82,24 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-6 max-w-6xl mx-auto pb-16">
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-slate-800">
-        <div>
-          <span className="text-xs font-black tracking-widest text-emerald-400 uppercase bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20">
-            SUPER ADMIN
-          </span>
-          <h1 className="text-3xl font-black text-white tracking-tight mt-2">
-            Administration Globale
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Supervise l'ensemble des comptes, coaches, élèves et programmes actifs.
-          </p>
-        </div>
+     <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-6 border-b border-slate-800">
+  <div>
+    <span className="text-[11px] font-extrabold tracking-widest text-emerald-400 uppercase bg-emerald-400/10 px-3 py-1 rounded-full border border-emerald-400/20 shadow-sm inline-block mb-2">
+      SUPER ADMIN
+    </span>
+    <h1 className="text-3xl font-black text-white tracking-tight">Administration Globale</h1>
+    <p className="text-sm text-slate-400 mt-0.5">Supervise l'ensemble des comptes, coaches, élèves et programmes.</p>
+  </div>
 
-        <button
-          onClick={handleLogout}
-          className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors"
-          title="Déconnexion"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Déconnexion</span>
-        </button>
-      </header>
+  <button
+    onClick={handleLogout}
+    className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors shrink-0"
+    title="Déconnexion"
+  >
+    <LogOut className="w-4 h-4" />
+    <span className="hidden sm:inline">Déconnexion</span>
+  </button>
+</header>
 
       {/* Cartes Métriques */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
