@@ -23,7 +23,15 @@ export default function Login() {
     try {
       if (isSignUp) {
         // INSCRIPTION
-        const { data, error } = await supabase.auth.signUp({ email, password });
+       const { data, error } = await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    data: {
+      role: role // Transmet 'coach' ou 'client'
+    }
+  }
+});
         if (error) throw error;
 
         if (data.user) {
