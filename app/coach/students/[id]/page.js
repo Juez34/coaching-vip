@@ -29,7 +29,6 @@ export default function CoachStudentDetailPage() {
     try {
       setLoading(true);
 
-      // 1. Profil élève
       const { data: studentData, error: studentErr } = await supabase
         .from("profiles")
         .select("*")
@@ -39,7 +38,6 @@ export default function CoachStudentDetailPage() {
       if (studentErr) throw studentErr;
       setStudent(studentData);
 
-      // 2. Historique des logs
       const { data: logsData } = await supabase
         .from("workout_logs")
         .select("id, program_id, created_at, duration_seconds, coach_reviewed, programs(title)")
@@ -48,7 +46,6 @@ export default function CoachStudentDetailPage() {
 
       setLogs(logsData || []);
 
-      // 3. Programmes de l'élève
       const { data: progData } = await supabase
         .from("programs")
         .select("*, exercises(count)")
@@ -62,9 +59,8 @@ export default function CoachStudentDetailPage() {
     }
   };
 
-  // 🗑️ Fonction de suppression de programme
   const handleDeleteProgram = async (e, programId, programTitle) => {
-    e.preventDefault(); // Empêche la redirection vers la page de détails
+    e.preventDefault();
     e.stopPropagation();
 
     const confirmDelete = window.confirm(
@@ -76,13 +72,11 @@ export default function CoachStudentDetailPage() {
     try {
       setDeletingId(programId);
 
-      // Supprimer les exercices liés
       await supabase
         .from("exercises")
         .delete()
         .eq("program_id", programId);
 
-      // Supprimer le programme
       const { error } = await supabase
         .from("programs")
         .delete()
@@ -90,7 +84,6 @@ export default function CoachStudentDetailPage() {
 
       if (error) throw error;
 
-      // Mise à jour de l'état local
       setPrograms(programs.filter((p) => p.id !== programId));
     } catch (err) {
       console.error("Erreur de suppression :", err);
@@ -177,71 +170,62 @@ export default function CoachStudentDetailPage() {
                 const isRealised = completedProgramIds.has(prog.id);
 
                 return (
-                  <div
+                  <Link
                     key={prog.id}
-                    className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-amber-400/50 hover:bg-slate-850/50 transition-all group shadow-md"
+                    href={`/coach/history/program/${prog.id}?student=${studentId}`}
+                    className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-amber-400/50 hover:bg-slate-850/50 transition-all group cursor-pointer shadow-md block"
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start gap-2">
                       <div>
-                        <Link 
-                          href={`/coach/history/program/${prog.id}?student=${studentId}`}
-                          className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors block"
-                        >
+                        <h3 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">
                           {prog.title}
-                        </Link>
+                        </h3>
                         <span className="text-[10px] text-slate-500 font-medium">
                           {prog.exercises?.[0]?.count || 0} exercices
                         </span>
                       </div>
 
-                      {isRealised ? (
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Réalisée
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/10 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/20 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> À faire
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {isRealised ? (
+                          <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Réalisée
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/10 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/20 flex items-center gap-1">
+                              <Clock className="w-3 h-3" /> À faire
+                            </span>
+
+                            {/* Boutons d'édition et suppression intégrés proprement sans casser le clic global */}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                router.push(`/coach/programs/${prog.id}/edit`);
+                              }}
+                              className="p-1 bg-slate-950 hover:bg-amber-400/20 text-slate-400 hover:text-amber-400 border border-slate-800 rounded-lg transition-all"
+                              title="Modifier la séance"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              onClick={(e) => handleDeleteProgram(e, prog.id, prog.title)}
+                              disabled={deletingId === prog.id}
+                              className="p-1 bg-slate-950 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-800 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                              title="Supprimer la séance"
+                            >
+                              {deletingId === prog.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-red-400" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-
-                    {/* Actions : Consultation / Édition / Suppression */}
-                    <div className="flex justify-between items-center pt-2 border-t border-slate-800/80">
-                      <Link
-                        href={`/coach/history/program/${prog.id}?student=${studentId}`}
-                        className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1"
-                      >
-                        <span>Détails</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </Link>
-
-                      {/* Édition et Suppression autorisées si la séance n'est pas réalisée */}
-                      {!isRealised && (
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/coach/programs/${prog.id}/edit`}
-                            className="p-1.5 bg-slate-950 hover:bg-amber-400/10 text-slate-500 hover:text-amber-400 border border-slate-800 hover:border-amber-400/30 rounded-lg transition-all"
-                            title="Modifier la séance"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Link>
-
-                          <button
-                            onClick={(e) => handleDeleteProgram(e, prog.id, prog.title)}
-                            disabled={deletingId === prog.id}
-                            className="p-1.5 bg-slate-950 hover:bg-red-500/10 text-slate-500 hover:text-red-400 border border-slate-800 hover:border-red-500/30 rounded-lg transition-all cursor-pointer disabled:opacity-50"
-                            title="Supprimer la séance"
-                          >
-                            {deletingId === prog.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-red-400" />
-                            ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
