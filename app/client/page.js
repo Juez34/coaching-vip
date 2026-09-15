@@ -38,7 +38,7 @@ export default function StudentDashboardPage() {
         .single();
       setUserProfile(profile);
 
-      // 3. Programmes attribués à CET élève uniquement
+      // 3. Programmes attribués à CET élève
       const { data: progData, error: progErr } = await supabase
         .from("programs")
         .select("*, exercises(count)")
@@ -48,7 +48,7 @@ export default function StudentDashboardPage() {
       if (progErr) throw progErr;
       setPrograms(progData || []);
 
-      // 4. Historique complet des séances réalisées par CET élève
+      // 4. Historique des séances réalisées
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("id, program_id, created_at, duration_seconds, coach_reviewed, programs(title)")
@@ -72,7 +72,6 @@ export default function StudentDashboardPage() {
     router.replace("/login");
   };
 
-  // 🎯 Logique identique au coach : Sélection des 3 dernières séances
   const unreviewedLogs = logs.filter((l) => !l.coach_reviewed);
   const reviewedLogs = logs.filter((l) => l.coach_reviewed);
   
@@ -118,7 +117,7 @@ export default function StudentDashboardPage() {
           </Link>
           <button
             onClick={handleLogout}
-            className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-950 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors"
+            className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-950 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors cursor-pointer"
             title="Déconnexion"
           >
             <LogOut className="w-4 h-4" />
@@ -174,7 +173,7 @@ export default function StudentDashboardPage() {
           )}
         </div>
 
-        {/* COLONNE 2 : Derniers entraînements à suivre (max 3) */}
+        {/* COLONNE 2 : Derniers entraînements à suivre */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Calendar className="w-4 h-4 text-amber-400" />
@@ -191,10 +190,10 @@ export default function StudentDashboardPage() {
                 const isReviewed = log.coach_reviewed;
 
                 return (
-                  <Link
+                  <div
                     key={log.id}
-                    href={`/client/history/${log.id}`}
-                    className={`block bg-slate-900 border rounded-2xl p-4 transition-all hover:border-amber-400/50 shadow-md ${
+                    onClick={() => router.push(`/client/history/${log.id}`)}
+                    className={`block cursor-pointer bg-slate-900 border rounded-2xl p-4 transition-all hover:border-amber-400/50 shadow-md ${
                       isReviewed 
                         ? "border-slate-800 opacity-80" 
                         : "border-amber-400/40 bg-gradient-to-r from-slate-900 to-amber-950/10"
@@ -225,12 +224,19 @@ export default function StudentDashboardPage() {
                           minute: '2-digit' 
                         })}
                       </span>
-                      <span className="flex items-center gap-1 text-amber-400 font-bold">
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/client/history/${log.id}`);
+                        }}
+                        className="flex items-center gap-1 text-amber-400 hover:text-amber-300 font-bold bg-transparent border-0 p-0 cursor-pointer"
+                      >
                         <span>Voir le rapport</span>
                         <ChevronRight className="w-3.5 h-3.5" />
-                      </span>
+                      </button>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
