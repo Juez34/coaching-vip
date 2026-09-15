@@ -19,7 +19,6 @@ export default function CoachProgramHistoryPage() {
   const [logs, setLogs] = useState([]);
   const [studentProfile, setStudentProfile] = useState(null);
 
-  // État pour suivre quelle(s) itération(s) sont ouvertes (par ID de log)
   const [openLogIds, setOpenLogIds] = useState({});
 
   useEffect(() => {
@@ -59,7 +58,6 @@ export default function CoachProgramHistoryPage() {
       const { data: logsData } = await query;
       setLogs(logsData || []);
 
-      // Ouvrir automatiquement la toute première itération par défaut
       if (logsData && logsData.length > 0) {
         setOpenLogIds({ [logsData[0].id]: true });
       }
@@ -85,6 +83,15 @@ export default function CoachProgramHistoryPage() {
       [logId]: !prev[logId]
     }));
   };
+
+  // Calcul du résumé global des séances pour affichage sous le titre
+  const totalSessions = logs.length;
+  const lastSessionDate = totalSessions > 0 && logs[0].created_at 
+    ? new Date(logs[0].created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+  const avgDuration = totalSessions > 0 
+    ? Math.round(logs.reduce((acc, curr) => acc + (curr.duration_seconds || 0), 0) / totalSessions / 60)
+    : 0;
 
   if (loading) {
     return (
@@ -114,19 +121,35 @@ export default function CoachProgramHistoryPage() {
         </Link>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 space-y-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/25">
-          Historique des itérations
-        </span>
-        <h1 className="text-2xl font-black text-white mt-2">{program?.title || "Programme"}</h1>
-        {studentProfile && (
-          <p className="text-xs text-slate-400">
-            Élève : <span className="text-white font-bold">{studentProfile.full_name || studentProfile.email}</span>
-          </p>
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 space-y-3">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/25">
+            Historique des itérations
+          </span>
+          <h1 className="text-2xl font-black text-white mt-2">{program?.title || "Programme"}</h1>
+          {studentProfile && (
+            <p className="text-xs text-slate-400 mt-1">
+              Élève : <span className="text-white font-bold">{studentProfile.full_name || studentProfile.email}</span>
+            </p>
+          )}
+        </div>
+
+        {/* 🌟 Résumé de la séance sous le titre (similaire à l'élève) */}
+        {totalSessions > 0 && (
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800 text-[11px]">
+            <span className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-300 flex items-center gap-1.5">
+              🏋️‍♂️ <strong className="text-white">{totalSessions}</strong> session{totalSessions > 1 ? "s" : ""} réalisée{totalSessions > 1 ? "s" : ""}
+            </span>
+            {lastSessionDate && (
+              <span className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-300 flex items-center gap-1.5">
+                📅 Dernier : <strong className="text-white">{lastSessionDate}</strong>
+              </span>
+            )}
+            <span className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-300 flex items-center gap-1.5">
+              ⏱️ Moy. : <strong className="text-amber-400">{avgDuration} min</strong>
+            </span>
+          </div>
         )}
-        <p className="text-xs text-slate-400 pt-1">
-          {logs.length} session{logs.length > 1 ? "s" : ""} réalisée{logs.length > 1 ? "s" : ""}. Clique sur une flèche pour dérouler l'itération souhaitée.
-        </p>
       </div>
 
       {logs.length === 0 ? (
@@ -143,7 +166,6 @@ export default function CoachProgramHistoryPage() {
 
             return (
               <div key={log.id || index} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg transition-all">
-                {/* Ligne cliquable / En-tête de l'itération avec la petite flèche sur la droite */}
                 <button
                   onClick={() => toggleAccordion(log.id)}
                   className="w-full p-4 flex flex-wrap justify-between items-center bg-slate-900 hover:bg-slate-850 transition-colors text-left cursor-pointer gap-2"
@@ -171,14 +193,12 @@ export default function CoachProgramHistoryPage() {
                       {Math.floor((log.duration_seconds || 0) / 60)} min
                     </span>
 
-                    {/* Petite flèche sur la droite pour dérouler */}
                     <div className="w-7 h-7 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-amber-400">
                       {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </div>
                   </div>
                 </button>
 
-                {/* Contenu déroulant de la séance */}
                 {isOpen && (
                   <div className="p-4 pt-0 space-y-4 border-t border-slate-800/80 bg-slate-950/40">
                     <div className="space-y-3 pt-3">
