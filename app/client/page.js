@@ -61,20 +61,22 @@ export default function StudentDashboard() {
     const { data: programData } = await query;
     setPrograms(programData || []);
 
-    // 3. Charger les logs d'entraînement pour identifier les séances terminées
-    const { data: logsData, error: logsError } = await supabase
+    // 3. Charger les logs d'entraînement
+    const { data: logsData } = await supabase
       .from("workout_logs")
       .select("program_id, user_id")
       .eq("user_id", userId);
-// 📱 AJOUTE CETTE LIGNE TEMPORAIREMENT POUR TESTER SUR MOBILE :
-    alert(`Debug - ID user: ${userId} | Logs trouvés: ${logsData ? logsData.length : 0}`);
 
-    if (logsError) {
-      console.error("Erreur chargement workout_logs :", logsError);
-    } else {
-      const completedSet = new Set((logsData || []).map(l => Number(l.program_id)));
-      setCompletedProgramIds(completedSet);
-    }
+    const logProgramIds = (logsData || []).map(l => String(l.program_id));
+    const currentProgIds = (programData || []).map(p => String(p.id));
+
+    // 📱 Alerte de débogage pour voir les IDs sur le téléphone
+    alert(`IDs Logs: [${logProgramIds.join(", ")}] \nIDs Programmes: [${currentProgIds.join(", ")}]`);
+
+    // Utilisation de String() pour s'assurer de comparer le même format
+    const completedSet = new Set(logProgramIds);
+    setCompletedProgramIds(completedSet);
+  };
     
     if (logsError) {
       console.error("Erreur chargement workout_logs :", logsError);
