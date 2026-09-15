@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { User, Mail, Trash2, Save, ArrowLeft, Loader2, Phone, Award } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -44,7 +46,7 @@ export default function ProfilePage() {
   const loadProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return (window.location.href = "/login");
+      if (!user) return router.push("/login");
 
       setUserId(user.id);
       setEmail(user.email);
@@ -128,7 +130,7 @@ export default function ProfilePage() {
       sessionStorage.clear();
 
       alert("Ton compte a bien été supprimé.");
-      window.location.href = "/login";
+      router.push("/login");
     } catch (err) {
       alert("Erreur lors de la suppression du compte : " + err.message);
     }

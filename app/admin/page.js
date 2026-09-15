@@ -3,8 +3,10 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { LogOut, User, Shield, Users, Dumbbell, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +31,7 @@ export default function AdminDashboard() {
     await supabase.auth.signOut();
     localStorage.clear();
     sessionStorage.clear();
-    window.location.replace("/login");
+    router.replace("/login");
   };
 
   if (loading) {

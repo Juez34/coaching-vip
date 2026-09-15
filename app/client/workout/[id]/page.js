@@ -3,9 +3,10 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { Check, ArrowLeft, Timer, Pause, Play, RotateCcw, Loader2, ChevronRight, MessageSquare } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 export default function WorkoutSessionPage() {
+  const router = useRouter();
   const params = useParams();
   const programId = params?.id;
 
@@ -95,25 +96,33 @@ export default function WorkoutSessionPage() {
   const handleFinishWorkout = async () => {
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error("Vous devez être connecté pour valider votre séance.");
+      }
 
-      const { error } = await supabase.from("workout_logs").insert([
-        {
-          program_id: programId,
-          user_id: user.id,
-          duration_seconds: timerSeconds,
-          completed_sets: completedSets,
-          actual_performances: actualPerformances,
-          student_comment: studentComment,
-          status: "completed"
-        }
-      ]);
+      if (!programId) {
+        throw new Error("Identifiant de programme invalide.");
+      }
+
+      const payload = {
+        program_id: programId,
+        user_id: user.id,
+        duration_seconds: Math.max(0, parseInt(timerSeconds) || 0),
+        completed_sets: completedSets || {},
+        actual_performances: actualPerformances || {},
+        student_comment: studentComment ? studentComment.trim() : null,
+        status: "completed"
+      };
+
+      const { error } = await supabase.from("workout_logs").insert([payload]);
 
       if (error) throw error;
       alert("Séance enregistrée avec succès ! 💪");
-      window.location.href = "/client";
+      router.push("/client");
     } catch (err) {
-      alert("Erreur lors de l'enregistrement : " + err.message);
+      console.error("Erreur enregistrement séance:", err);
+      alert("Erreur lors de l'enregistrement : " + (err.message || "Une erreur est survenue"));
     } finally {
       setSaving(false);
     }
