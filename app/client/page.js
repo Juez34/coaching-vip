@@ -5,8 +5,10 @@ import {
   Play, Dumbbell, UserCheck, LogOut, Search, User, Plus, Loader2, Star, ChevronRight 
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function StudentDashboard() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
 
@@ -27,7 +29,7 @@ export default function StudentDashboard() {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return (window.location.href = "/login");
+      if (!user) return router.push("/login");
 
       setCurrentUserId(user.id);
       await loadCoachesAndPrograms(user.id);
@@ -74,7 +76,7 @@ export default function StudentDashboard() {
     await supabase.auth.signOut();
     localStorage.clear();
     sessionStorage.clear();
-    window.location.replace("/login");
+    router.replace("/login");
   };
 
   const searchCoach = async (query) => {

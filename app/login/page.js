@@ -2,8 +2,10 @@
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { Dumbbell, ArrowRight, Lock, Mail, Phone, Calendar } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -100,9 +102,9 @@ export default function Login() {
             .maybeSingle();
 
           const userRole = profile?.role || "client";
-          if (userRole === "admin") window.location.href = "/admin";
-          else if (userRole === "coach") window.location.href = "/coach";
-          else window.location.href = "/client";
+          if (userRole === "admin") router.push("/admin");
+          else if (userRole === "coach") router.push("/coach");
+          else router.push("/client");
         }
       }
     } catch (err) {

@@ -3,8 +3,10 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { Dumbbell, ArrowRight, Shield, Users, Zap, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [userSession, setUserSession] = useState(null);
 
@@ -23,9 +25,9 @@ export default function Home() {
             .maybeSingle();
 
           const role = profile?.role || "client";
-          if (role === "admin") window.location.href = "/admin";
-          else if (role === "coach") window.location.href = "/coach";
-          else window.location.href = "/client";
+          if (role === "admin") router.push("/admin");
+          else if (role === "coach") router.push("/coach");
+          else router.push("/client");
         } else {
           // Si non connecté, on arrête le chargement et on affiche la vitrine
           setLoading(false);

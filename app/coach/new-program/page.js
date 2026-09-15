@@ -3,8 +3,10 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabase";
 import { ArrowLeft, Plus, Trash2, Save, Dumbbell, UserCheck, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function NewProgramPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -26,7 +28,7 @@ export default function NewProgramPage() {
     try {
       setLoading(true);
       const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return (window.location.href = "/login");
+      if (!user.user) return router.push("/login");
 
       // Récupération des élèves associés via student_coaches
       const { data: multiCoachData } = await supabase
@@ -121,7 +123,7 @@ export default function NewProgramPage() {
       }
 
       alert("Programme créé et assigné avec succès !");
-      window.location.href = "/coach";
+      router.push("/coach");
     } catch (err) {
       alert("Erreur lors de la création du programme : " + err.message);
     } finally {

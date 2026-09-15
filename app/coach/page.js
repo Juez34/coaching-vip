@@ -5,8 +5,10 @@ import {
   Plus, LogOut, User, Users, Loader2, ChevronRight, Dumbbell, Calendar 
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function CoachDashboard() {
+  const router = useRouter();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -66,7 +68,7 @@ export default function CoachDashboard() {
     await supabase.auth.signOut();
     localStorage.clear();
     sessionStorage.clear();
-    window.location.replace("/login");
+    router.replace("/login");
   };
 
   if (loading) {
