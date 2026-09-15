@@ -112,8 +112,8 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-4xl mx-auto pb-24">
-      {/* Header */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-4xl mx-auto pb-28">
+      {/* Header épuré sans le bouton + */}
       <header className="flex justify-between items-center mb-6 pb-6 border-b border-slate-800">
         <div>
           <span className="text-[11px] font-extrabold tracking-widest text-amber-400 uppercase bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20 mb-2 inline-block">
@@ -123,22 +123,18 @@ export default function StudentDashboard() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/client/create" className="text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Créer une séance</span>
-          </Link>
-          <Link href="/profile" className="text-xs font-bold text-slate-300 bg-slate-900 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2">
+          <Link href="/profile" className="text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors">
             <User className="w-4 h-4 text-amber-400" />
             <span className="hidden sm:inline">Mon Profil</span>
           </Link>
-          <button onClick={handleLogout} className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 px-3.5 py-2 rounded-xl border border-slate-800">
+          <button onClick={handleLogout} className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 transition-colors">
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
 
       {/* Liste des cartes de programmes */}
-      <div className="space-y-4">
+      <div className="space-y-4 mb-8">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Programmes Disponibles</h2>
         
         {programs.length === 0 ? (
@@ -204,6 +200,17 @@ export default function StudentDashboard() {
             })}
           </div>
         )}
+      </div>
+
+      {/* BOUTON EN BAS : Créer une séance libre (explicite) */}
+      <div className="pt-4 border-t border-slate-800">
+        <Link
+          href="/client/create"
+          className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-400/30 font-extrabold text-sm rounded-2xl shadow-lg flex items-center justify-center gap-2.5 transition-all"
+        >
+          <Plus className="w-5 h-5 text-amber-400" />
+          <span>CRÉER UNE SÉANCE LIBRE</span>
+        </Link>
       </div>
     </div>
   );
