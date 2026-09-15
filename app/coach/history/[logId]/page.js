@@ -70,24 +70,31 @@ export default function CoachWorkoutDetailView() {
   const handleToggleReview = async () => {
     try {
       setUpdating(true);
-      // On force la validation à true lorsqu'on clique sur valider
-      const newStatus = true;
+      const newStatus = !log?.coach_reviewed;
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("workout_logs")
         .update({ coach_reviewed: newStatus })
-        .eq("id", logId);
+        .eq("id", logId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erreur Supabase RLS/Update:", error);
+        alert("Erreur de mise à jour (Vérifie les droits RLS Supabase) : " + error.message);
+        setUpdating(false);
+        return;
+      }
 
-      // Redirection immédiate vers la page de l'élève concerné
+      console.log("Mise à jour réussie :", data);
+
+      // Redirection vers la page de l'élève une fois validé
       if (log?.user_id) {
         router.push(`/coach/students/${log.user_id}`);
       } else {
         router.back();
       }
     } catch (err) {
-      alert("Erreur lors de la mise à jour : " + err.message);
+      alert("Erreur inattendue : " + err.message);
       setUpdating(false);
     }
   };
@@ -102,6 +109,7 @@ export default function CoachWorkoutDetailView() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-2xl mx-auto pb-24">
+      {/* Barre de navigation rapide */}
       <div className="flex justify-between items-center mb-6">
         <button 
           onClick={() => router.back()} 
@@ -120,30 +128,16 @@ export default function CoachWorkoutDetailView() {
         </Link>
       </div>
 
+      {/* En-tête de la séance de l'élève */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 space-y-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/25">
-              Rapport d'entraînement
-            </span>
-            <h1 className="text-2xl font-black text-white mt-2">{program?.title || "Séance libre"}</h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Élève : <span className="text-white font-bold">{studentProfile?.full_name || studentProfile?.email || "Client"}</span>
-            </p>
-          </div>
-
-          <button
-            onClick={handleToggleReview}
-            disabled={updating}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-md ${
-              log?.coach_reviewed 
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30" 
-                : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 border border-emerald-400"
-            }`}
-          >
-            {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-            <span>{log?.coach_reviewed ? "Séance déjà lue" : "Valider la lecture"}</span>
-          </button>
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/25">
+            Rapport d'entraînement
+          </span>
+          <h1 className="text-2xl font-black text-white mt-2">{program?.title || "Séance libre"}</h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Élève : <span className="text-white font-bold">{studentProfile?.full_name || studentProfile?.email || "Client"}</span>
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-800 text-xs">
@@ -158,6 +152,7 @@ export default function CoachWorkoutDetailView() {
         </div>
       </div>
 
+      {/* Détail des performances de l'élève */}
       <div className="space-y-6">
         <div className="space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -237,6 +232,22 @@ export default function CoachWorkoutDetailView() {
             <p className="text-amber-100/90 text-xs italic">"{log.student_comment}"</p>
           </div>
         )}
+
+        {/* 🌟 BOUTON DE VALIDATION DÉPLACÉ EN BAS DE LA SÉANCE */}
+        <div className="pt-4">
+          <button
+            onClick={handleToggleReview}
+            disabled={updating}
+            className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-xl cursor-pointer ${
+              log?.coach_reviewed 
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30" 
+                : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 border border-emerald-400 shadow-emerald-500/20"
+            }`}
+          >
+            {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+            <span>{log?.coach_reviewed ? "Séance déjà validée (Marquer comme non lue)" : "Valider la lecture de la séance"}</span>
+          </button>
+        </div>
       </div>
     </div>
   );
