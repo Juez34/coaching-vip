@@ -15,7 +15,6 @@ function NewProgramForm() {
   const [selectedStudentId, setSelectedStudentId] = useState(studentIdFromUrl || "");
   const [title, setTitle] = useState("");
 
-  // Liste des exercices à créer dans ce programme
   const [exercises, setExercises] = useState([
     { name: "", sets: 3, reps: "10-12" }
   ]);
@@ -40,7 +39,7 @@ function NewProgramForm() {
       if (error) throw error;
       setStudents(data || []);
     } catch (err) {
-      console.error("Erreur lors de la récupération des élèves :", err);
+      console.error("Erreur chargement élèves :", err);
     }
   };
 
@@ -74,21 +73,24 @@ function NewProgramForm() {
     try {
       setLoading(true);
 
-      // 1. Créer le programme avec le student_id bien renseigné
+      // 1. Insertion du programme
       const { data: programData, error: programErr } = await supabase
         .from("programs")
         .insert([
           {
             title: title.trim(),
-            student_id: selectedStudentId, // ⚠️ Lien direct avec l'élève !
+            student_id: selectedStudentId,
           }
         ])
         .select()
         .single();
 
-      if (programErr) throw programErr;
+      if (programErr) {
+        console.error("Erreur création programme Supabase :", programErr);
+        throw programErr;
+      }
 
-      // 2. Insérer la liste des exercices rattachés à ce nouveau programme
+      // 2. Insertion des exercices associés
       const validExercises = exercises.filter(ex => ex.name.trim() !== "");
       if (validExercises.length > 0) {
         const exercisesToInsert = validExercises.map((ex, idx) => ({
@@ -103,15 +105,18 @@ function NewProgramForm() {
           .from("exercises")
           .insert(exercisesToInsert);
 
-        if (exErr) throw exErr;
+        if (exErr) {
+          console.error("Erreur création exercices Supabase :", exErr);
+          throw exErr;
+        }
       }
 
-      // 3. Forcer le rafraîchissement du cache Next.js et rediriger sur le dossier de l'élève
+      // 3. Rafraîchissement et redirection
       router.refresh();
       router.push(`/coach/students/${selectedStudentId}`);
     } catch (err) {
-      console.error("Erreur de création du programme :", err);
-      alert("Une erreur est survenue lors de la création.");
+      console.error("Détail complet de l'erreur :", err);
+      alert(`Erreur Supabase : ${err.message || err.details || "Création impossible"}`);
     } finally {
       setLoading(false);
     }
@@ -135,7 +140,6 @@ function NewProgramForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Choix de l'élève et Titre */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
@@ -171,7 +175,6 @@ function NewProgramForm() {
           </div>
         </div>
 
-        {/* Liste des exercices */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-2">
@@ -244,7 +247,6 @@ function NewProgramForm() {
           </div>
         </div>
 
-        {/* Bouton de validation */}
         <button
           type="submit"
           disabled={loading}
