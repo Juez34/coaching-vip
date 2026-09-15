@@ -105,7 +105,7 @@ export default function CoachStudentDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* COLONNE 1 : Programmes assignés entièrement cliquables */}
+        {/* COLONNE 1 : Programmes assignés entièrement cliquables (épurés) */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Dumbbell className="w-4 h-4 text-amber-400" />
@@ -142,11 +142,6 @@ export default function CoachStudentDetailPage() {
                           <Clock className="w-3 h-3" /> À faire
                         </span>
                       )}
-                    </div>
-
-                    <div className="text-[11px] text-slate-500 group-hover:text-amber-400 font-bold transition-colors pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                      <span>Cliquer pour voir l'historique des itérations</span>
-                      <ChevronRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
                     </div>
                   </Link>
                 );
