@@ -40,6 +40,7 @@ export default function StudentDashboard() {
   };
 
   const loadCoachesAndPrograms = async (userId) => {
+    // 1. Charger les coachs
     const { data: coachesData } = await supabase
       .from("student_coaches")
       .select("coach_id, profiles!student_coaches_coach_id_fkey(id, full_name, email)")
@@ -48,6 +49,7 @@ export default function StudentDashboard() {
     const formattedCoaches = (coachesData || []).map(c => c.profiles);
     setMyCoaches(formattedCoaches);
 
+    // 2. Charger les programmes
     let query = supabase.from("programs").select("*, exercises(count)");
     if (formattedCoaches.length > 0) {
       const coachIds = formattedCoaches.map(c => c.id);
@@ -59,13 +61,18 @@ export default function StudentDashboard() {
     const { data: programData } = await query;
     setPrograms(programData || []);
 
-    const { data: logsData } = await supabase
+    // 3. Charger les logs d'entraînement pour identifier les séances terminées
+    const { data: logsData, error: logsError } = await supabase
       .from("workout_logs")
-      .select("program_id")
+      .select("program_id, user_id")
       .eq("user_id", userId);
 
-    if (logsData) {
-      setCompletedProgramIds(new Set(logsData.map(l => l.program_id)));
+    if (logsError) {
+      console.error("Erreur chargement workout_logs :", logsError);
+    } else {
+      console.log("Logs récupérés pour l'utilisateur :", logsData);
+      const completedSet = new Set((logsData || []).map(l => Number(l.program_id)));
+      setCompletedProgramIds(completedSet);
     }
   };
 
@@ -143,7 +150,9 @@ export default function StudentDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {programs.map((prog) => {
-              const isCompleted = completedProgramIds.has(prog.id);
+              // Vérification stricte en convertissant en Number pour éviter les problèmes de type (ID en string vs number)
+              const isCompleted = completedProgramIds.has(Number(prog.id));
+
               return (
                 <div key={prog.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-amber-400/50 transition-all">
                   <div>
@@ -174,21 +183,26 @@ export default function StudentDashboard() {
 
                   {/* Actions dynamiques */}
                   {isCompleted ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      <Link
-                        href={`/client/history/${prog.id}`}
-                        className="py-2.5 bg-slate-950 hover:bg-slate-800 text-emerald-400 border border-emerald-400/30 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
-                      >
-                        <History className="w-3.5 h-3.5" />
-                        <span>Historique</span>
-                      </Link>
-                      <Link
-                        href={`/client/workout/${prog.id}`}
-                        className="py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-slate-950" />
-                        <span>Refaire</span>
-                      </Link>
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold uppercase text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-md border border-emerald-400/20 block text-center flex items-center justify-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Séance Terminée
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Link
+                          href={`/client/history/${prog.id}`}
+                          className="py-2.5 bg-slate-950 hover:bg-slate-800 text-emerald-400 border border-emerald-400/30 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                          <span>Historique</span>
+                        </Link>
+                        <Link
+                          href={`/client/workout/${prog.id}`}
+                          className="py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-slate-950" />
+                          <span>Refaire</span>
+                        </Link>
+                      </div>
                     </div>
                   ) : (
                     <Link
