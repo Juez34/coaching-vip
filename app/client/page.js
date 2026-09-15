@@ -70,12 +70,7 @@ export default function StudentDashboard() {
     const logProgramIds = (logsData || []).map(l => String(l.program_id));
     const currentProgIds = (programData || []).map(p => String(p.id));
 
-    // Alerte de débogage pour voir les IDs sur le téléphone
-    alert(`IDs Logs: [${logProgramIds.join(", ")}] \nIDs Programmes: [${currentProgIds.join(", ")}]`);
-
-    const completedSet = new Set(logProgramIds);
-    setCompletedProgramIds(completedSet);
-  };
+   
 
   const fetchFeaturedCoach = async () => {
     const { data } = await supabase
