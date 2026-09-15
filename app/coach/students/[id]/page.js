@@ -126,7 +126,7 @@ export default function CoachStudentDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* SÉANCES ATTRIBUÉES */}
+        {/* SÉANCES ATTRIBUÉES AVEC STATUT */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -144,26 +144,40 @@ export default function CoachStudentDetailPage() {
             </p>
           ) : (
             <div className="space-y-2">
-              {programs.map((prog) => (
-                <div key={prog.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
-                  <div>
-                    <span className="font-bold text-white block">{prog.title}</span>
-                    <span className="text-[10px] text-slate-400">{prog.exercises?.length || 0} exercice(s)</span>
+              {programs.map((prog) => {
+                const isCompleted = history.some(log => log.program_id === prog.id);
+                return (
+                  <div key={prog.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                    <div>
+                      <span className="font-bold text-white block">{prog.title}</span>
+                      <span className="text-[10px] text-slate-400">{prog.exercises?.length || 0} exercice(s)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isCompleted ? (
+                        <span className="text-[10px] bg-emerald-400/10 text-emerald-400 px-2 py-1 rounded-md border border-emerald-400/20 font-bold">
+                          Réalisée ✅
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-amber-400/10 text-amber-400 px-2 py-1 rounded-md border border-amber-400/20 font-bold">
+                          En attente ⏳
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleDeleteAssignedProgram(prog.id)}
+                        className="text-slate-500 hover:text-rose-400 p-1.5 transition-colors"
+                        title="Supprimer ce programme"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteAssignedProgram(prog.id)}
-                    className="text-slate-500 hover:text-rose-400 p-1.5 transition-colors"
-                    title="Supprimer ce programme"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* HISTORIQUE ET EXÉCUTIONS */}
+        {/* HISTORIQUE ET EXÉCUTIONS AVEC COMMENTAIRES D'EXERCICES */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
             <History className="w-4 h-4 text-emerald-400" />
@@ -190,8 +204,20 @@ export default function CoachStudentDetailPage() {
 
                   {log.student_comment && (
                     <p className="text-[11px] text-amber-300 bg-amber-400/10 p-2 rounded-lg border border-amber-400/20 italic">
-                      💬 "{log.student_comment}"
+                      💬 Commentaire global : "{log.student_comment}"
                     </p>
+                  )}
+
+                  {/* Commentaires par exercice de l'élève */}
+                  {log.exercise_comments && Object.keys(log.exercise_comments).length > 0 && (
+                    <div className="text-[10px] text-slate-300 space-y-0.5 pt-1 border-t border-slate-900">
+                      <span className="font-bold text-slate-400 uppercase">Commentaires par exercice :</span>
+                      {Object.entries(log.exercise_comments).map(([exId, comment], i) => (
+                        <p key={i} className="text-slate-400 italic">
+                          • {comment}
+                        </p>
+                      ))}
+                    </div>
                   )}
 
                   {log.actual_performances && (
