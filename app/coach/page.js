@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../lib/supabase";
 import { 
-  Plus, LogOut, User, Users, Loader2, ChevronRight, Dumbbell, Calendar 
+  Plus, LogOut, User, Users, Loader2, Dumbbell, Calendar 
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -135,7 +135,7 @@ export default function CoachDashboard() {
                 <Link
                   key={st.id}
                   href={`/coach/students/${st.id}`}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-amber-400/50 hover:bg-slate-850 transition-all group cursor-pointer shadow-md"
+                  className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-amber-400/50 hover:bg-slate-850/50 transition-all group cursor-pointer shadow-md"
                 >
                   <div>
                     <div className="flex justify-between items-start mb-2">
@@ -167,9 +167,9 @@ export default function CoachDashboard() {
                     </div>
                   </div>
 
-                  <div className="w-full py-2.5 bg-slate-950 group-hover:bg-slate-800 text-slate-300 group-hover:text-amber-400 border border-slate-800 font-bold text-xs rounded-xl flex items-center justify-between px-4 transition-all">
-                    <span>Accéder au dossier et à l'historique</span>
-                    <ChevronRight className="w-4 h-4 text-amber-400 transform group-hover:translate-x-1 transition-transform" />
+                  <div className="text-[11px] text-slate-500 group-hover:text-amber-400 font-bold transition-colors pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                    <span>Cliquez pour voir le dossier et l'historique</span>
+                    <span>→</span>
                   </div>
                 </Link>
               );
