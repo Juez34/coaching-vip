@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { 
-  ArrowLeft, Loader2, Calendar, Clock, Dumbbell, 
+  ArrowLeft, Loader2, Clock, Dumbbell, 
   ChevronDown, ChevronUp, CheckCircle2, AlertCircle 
 } from "lucide-react";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { useParams } from "next/navigation";
 
 export default function StudentWorkoutHistoryPage() {
   const params = useParams();
-  const logOrProgramId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
+  const rawId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
 
   const [loading, setLoading] = useState(true);
   const [programTitle, setProgramTitle] = useState("");
@@ -18,10 +18,10 @@ export default function StudentWorkoutHistoryPage() {
   const [openSessionId, setOpenSessionId] = useState(null);
 
   useEffect(() => {
-    if (logOrProgramId) {
+    if (rawId) {
       fetchWorkoutHistory();
     }
-  }, [logOrProgramId]);
+  }, [rawId]);
 
   const fetchWorkoutHistory = async () => {
     try {
@@ -30,31 +30,36 @@ export default function StudentWorkoutHistoryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Déterminer si l'ID reçu est un log_id précis ou un program_id
-      let targetProgramId = logOrProgramId;
+      let targetProgramId = rawId;
 
-      const { data: initialLog } = await supabase
+      // 1. Chercher si l'ID transmis est un ID de log d'entraînement (workout_log)
+      const { data: targetLog } = await supabase
         .from("workout_logs")
-        .select("program_id")
-        .eq("id", logOrProgramId)
-        .single();
+        .select("id, program_id, programs(title)")
+        .eq("id", rawId)
+        .maybeSingle();
 
-      if (initialLog?.program_id) {
-        targetProgramId = initialLog.program_id;
+      if (targetLog) {
+        targetProgramId = targetLog.program_id;
+        if (targetLog.programs?.title) {
+          setProgramTitle(targetLog.programs.title);
+        }
       }
 
-      // 2. Récupérer les informations du programme
-      const { data: programData } = await supabase
-        .from("programs")
-        .select("title")
-        .eq("id", targetProgramId)
-        .single();
+      // 2. Si ce n'était pas un log ID mais un program_id direct
+      if (!targetLog) {
+        const { data: programData } = await supabase
+          .from("programs")
+          .select("title")
+          .eq("id", targetProgramId)
+          .maybeSingle();
 
-      if (programData) {
-        setProgramTitle(programData.title);
+        if (programData) {
+          setProgramTitle(programData.title);
+        }
       }
 
-      // 3. Récupérer TOUTES les sessions (workout_logs) réalisées par cet élève pour ce programme
+      // 3. Récupérer toutes les sessions de CET élève pour ce programme
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("*, workout_log_entries(*)")
@@ -66,10 +71,10 @@ export default function StudentWorkoutHistoryPage() {
 
       setSessions(logsData || []);
 
-      // Ouvrir automatiquement la première session (ou celle ciblée par l'URL)
+      // 4. Ouvrir la session ciblée ou la plus récente
       if (logsData && logsData.length > 0) {
-        const matchingSession = logsData.find((s) => s.id === logOrProgramId);
-        setOpenSessionId(matchingSession ? matchingSession.id : logsData[0].id);
+        const foundTarget = logsData.find((s) => s.id === rawId);
+        setOpenSessionId(foundTarget ? foundTarget.id : logsData[0].id);
       }
     } catch (err) {
       console.error("Erreur lors du chargement de l'historique :", err);
@@ -146,7 +151,7 @@ export default function StudentWorkoutHistoryPage() {
                   isOpen ? "bg-slate-900 border-amber-400/50" : "bg-slate-900/60 border-slate-800"
                 }`}
               >
-                {/* En-tête de l'accordéon (Cliquable) */}
+                {/* En-tête de l'accordéon */}
                 <button
                   onClick={() => toggleSession(session.id)}
                   className="w-full p-4 sm:p-5 flex items-center justify-between text-left cursor-pointer hover:bg-slate-850 transition-colors"
@@ -202,7 +207,9 @@ export default function StudentWorkoutHistoryPage() {
                             key={entry.id || idx}
                             className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs"
                           >
-                            <span className="font-bold text-white">{entry.exercise_name || `Exercice #${idx + 1}`}</span>
+                            <span className="font-bold text-white">
+                              {entry.exercise_name || `Exercice #${idx + 1}`}
+                            </span>
                             <div className="flex gap-3 text-slate-300">
                               <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
                                 <strong className="text-amber-400">{entry.sets_completed || "-"}</strong> séries
@@ -220,7 +227,9 @@ export default function StudentWorkoutHistoryPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500">Aucune donnée détaillée enregistrée pour cette session.</p>
+                      <p className="text-xs text-slate-500">
+                        Aucune donnée détaillée enregistrée pour cette session.
+                      </p>
                     )}
                   </div>
                 )}
