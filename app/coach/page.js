@@ -17,16 +17,27 @@ export default function CoachDashboardPage() {
     try {
       setLoading(true);
 
-      // 1. Récupération de l'ensemble des élèves / profils sans filtre bloquant
-      const { data: studentsData, error: studentsErr } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("full_name", { ascending: true });
+      // 1. Récupération de l'ID du coach connecté
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (studentsErr) throw studentsErr;
-      setStudents(studentsData || []);
+      if (user) {
+        // 2. Récupération des élèves via la table de liaison students_coaches
+        const { data: relationData, error: relationErr } = await supabase
+          .from("students_coaches")
+          .select("student_id, profiles!student_id(*)")
+          .eq("coach_id", user.id);
 
-      // 2. Récupération des 6 dernières séances enregistrées
+        if (relationErr) throw relationErr;
+
+        // Extraction des profils depuis le résultat imbriqué
+        const myStudents = (relationData || [])
+          .map((item) => item.profiles)
+          .filter(Boolean);
+
+        setStudents(myStudents);
+      }
+
+      // 3. Récupération des dernières séances
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("id, program_id, user_id, created_at, coach_reviewed, profiles(full_name, email), programs(title)")
@@ -77,7 +88,7 @@ export default function CoachDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* COLONNE 1 : Liste des élèves rattachés */}
+        {/* COLONNE 1 : Liste de tes élèves uniquement */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Users className="w-4 h-4 text-amber-400" />
@@ -86,7 +97,7 @@ export default function CoachDashboardPage() {
 
           {students.length === 0 ? (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-slate-400 text-xs">
-              Aucun élève inscrit pour le moment.
+              Aucun élève ne t'est rattaché pour le moment.
             </div>
           ) : (
             <div className="space-y-3">
