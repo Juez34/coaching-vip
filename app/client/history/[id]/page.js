@@ -1,17 +1,19 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
-import { ArrowLeft, Loader2, Calendar, Clock, Dumbbell, MessageSquare } from "lucide-react";
+import { ArrowLeft, Loader2, Dumbbell, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
 export default function WorkoutHistoryPage() {
   const params = useParams();
-  const programId = params?.id;
+  // On s'assure de récupérer l'ID proprement qu'il soit sous forme de string ou de tableau
+  const programId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
 
   const [loading, setLoading] = useState(true);
   const [program, setProgram] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [debugInfo, setDebugInfo] = useState("");
 
   useEffect(() => {
     if (programId) {
@@ -23,28 +25,43 @@ export default function WorkoutHistoryPage() {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setDebugInfo("Utilisateur non connecté");
+        return;
+      }
+
+      setDebugInfo(`User ID: ${user.id} | Program ID: ${programId}`);
 
       // 1. Récupérer le programme
-      const { data: progData } = await supabase
+      const { data: progData, error: progErr } = await supabase
         .from("programs")
         .select("*")
         .eq("id", programId)
-        .single();
+        .maybeSingle();
+
+      if (progErr) {
+        console.error("Erreur prog:", progErr);
+      }
       setProgram(progData);
 
-      // 2. Récupérer les logs
-      const { data: logsData } = await supabase
+      // 2. Récupérer les logs pour ce programme et cet utilisateur
+      const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("*")
         .eq("program_id", programId)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      console.log("Logs chargés :", logsData);
+      if (logsErr) {
+        console.error("Erreur logs:", logsErr);
+        setDebugInfo((prev) => prev + ` | Erreur logs: ${logsErr.message}`);
+      }
+
+      console.log("Logs récupérés dans la page history :", logsData);
       setLogs(logsData || []);
     } catch (err) {
-      console.error("Erreur :", err);
+      console.error("Erreur globale :", err);
+      setDebugInfo((prev) => prev + ` | Exception: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -65,19 +82,27 @@ export default function WorkoutHistoryPage() {
         <span>Retour à mes séances</span>
       </Link>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 space-y-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full border border-emerald-400/20">
           Historique des performances
         </span>
         <h1 className="text-2xl font-black text-white mt-2">{program?.title || "Séance"}</h1>
-        <p className="text-xs text-slate-400 mt-1">
-          {logs.length} session{logs.length > 1 ? "s" : ""} trouvée{logs.length > 1 ? "s" : ""}
+        <p className="text-xs text-slate-400">
+          {logs.length} session{logs.length > 1 ? "s" : ""} enregistrée{logs.length > 1 ? "s" : ""}
+        </p>
+        
+        {/* Ligne de debug visible directement sur l'écran pour valider */}
+        <p className="text-[10px] text-slate-500 font-mono bg-slate-950 p-2 rounded border border-slate-800">
+          Debug info: {debugInfo}
         </p>
       </div>
 
       {logs.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400">
-          Aucun historique à afficher.
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-2">
+          <p className="font-bold text-white">Aucun historique trouvé pour cette session exacte.</p>
+          <p className="text-xs text-slate-500">
+            Vérifie dans la boîte de debug ci-dessus si le Program ID correspond bien à celui de tes logs.
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -93,7 +118,7 @@ export default function WorkoutHistoryPage() {
                 </span>
               </div>
 
-              {/* Performances brutes sécurisées */}
+              {/* Performances brutes */}
               {log.actual_performances && (
                 <div className="space-y-2">
                   <h3 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-1.5">
