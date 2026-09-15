@@ -1,7 +1,10 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { Loader2, Dumbbell, Calendar, CheckCircle2, Clock, LogOut, User } from "lucide-react";
+import { 
+  Loader2, Dumbbell, Calendar, CheckCircle2, Clock, 
+  LogOut, User, ChevronRight, AlertCircle, Check 
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -9,7 +12,7 @@ export default function StudentDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [programs, setPrograms] = useState([]);
-  const [completedLogs, setCompletedLogs] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
@@ -20,14 +23,14 @@ export default function StudentDashboardPage() {
     try {
       setLoading(true);
 
-      // 1. Récupération impérative de l'utilisateur connecté
+      // 1. Utilisateur connecté
       const { data: { user }, error: authErr } = await supabase.auth.getUser();
       if (authErr || !user) {
         router.replace("/login");
         return;
       }
 
-      // 2. Profil de l'élève connecté
+      // 2. Profil élève
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
@@ -35,7 +38,7 @@ export default function StudentDashboardPage() {
         .single();
       setUserProfile(profile);
 
-      // 3. 🔒 Filtre STRICT : uniquement les programmes assignés à CET élève
+      // 3. Programmes attribués à CET élève uniquement
       const { data: progData, error: progErr } = await supabase
         .from("programs")
         .select("*, exercises(count)")
@@ -45,15 +48,15 @@ export default function StudentDashboardPage() {
       if (progErr) throw progErr;
       setPrograms(progData || []);
 
-      // 4. 🔒 Filtre STRICT : uniquement les séances exécutées par CET élève
+      // 4. Historique complet des séances réalisées par CET élève
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
-        .select("*, programs(title)")
+        .select("id, program_id, created_at, duration_seconds, coach_reviewed, programs(title)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (logsErr) throw logsErr;
-      setCompletedLogs(logsData || []);
+      setLogs(logsData || []);
 
     } catch (err) {
       console.error("Erreur de chargement du tableau de bord élève :", err);
@@ -69,7 +72,17 @@ export default function StudentDashboardPage() {
     router.replace("/login");
   };
 
-  const completedProgramIds = new Set(completedLogs.map((l) => l.program_id));
+  // 🎯 Logique identique au coach : Sélection des 3 dernières séances
+  const unreviewedLogs = logs.filter((l) => !l.coach_reviewed);
+  const reviewedLogs = logs.filter((l) => l.coach_reviewed);
+  
+  let displayedLogs = [...unreviewedLogs];
+  if (displayedLogs.length < 3) {
+    const needed = 3 - displayedLogs.length;
+    displayedLogs = [...displayedLogs, ...reviewedLogs.slice(0, needed)];
+  }
+
+  const completedProgramIds = new Set(logs.map((l) => l.program_id));
 
   if (loading) {
     return (
@@ -114,7 +127,7 @@ export default function StudentDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Mes programmes attribués */}
+        {/* COLONNE 1 : Mes programmes attribués */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Dumbbell className="w-4 h-4 text-amber-400" />
@@ -134,21 +147,23 @@ export default function StudentDashboardPage() {
                   <Link
                     key={prog.id}
                     href={`/client/workout/${prog.id}`}
-                    className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex justify-between items-center hover:border-amber-400/50 transition-all block shadow-md"
+                    className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex justify-between items-center hover:border-amber-400/50 transition-all group shadow-md block"
                   >
                     <div>
-                      <h3 className="text-sm font-bold text-white">{prog.title}</h3>
+                      <h3 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">
+                        {prog.title}
+                      </h3>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         {prog.exercises?.[0]?.count || 0} exercice(s)
                       </p>
                     </div>
 
                     {isDone ? (
-                      <span className="text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Fait
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Réalisée
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold uppercase bg-amber-400/10 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/20 flex items-center gap-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/10 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/20 flex items-center gap-1">
                         <Clock className="w-3 h-3" /> À faire
                       </span>
                     )}
@@ -159,43 +174,65 @@ export default function StudentDashboardPage() {
           )}
         </div>
 
-        {/* Historique des séances */}
+        {/* COLONNE 2 : Derniers entraînements à suivre (max 3) */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Calendar className="w-4 h-4 text-amber-400" />
-            <span>Mon Historique ({completedLogs.length})</span>
+            <span>Derniers entraînements à suivre</span>
           </h2>
 
-          {completedLogs.length === 0 ? (
+          {logs.length === 0 ? (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-slate-400 text-xs">
-              Tu n'as pas encore validé de séance.
+              Aucune séance réalisée pour le moment.
             </div>
           ) : (
             <div className="space-y-3">
-              {completedLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex justify-between items-center shadow-md"
-                >
-                  <div>
-                    <h4 className="text-sm font-bold text-white">
-                      {log.programs?.title || "Séance libre"}
-                    </h4>
-                    <span className="text-[11px] text-slate-500">
-                      {new Date(log.created_at).toLocaleDateString("fr-FR", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
+              {displayedLogs.map((log) => {
+                const isReviewed = log.coach_reviewed;
 
-                  <span className="text-[10px] font-bold uppercase bg-slate-950 text-slate-400 px-2.5 py-1 rounded-lg border border-slate-800">
-                    Complétée
-                  </span>
-                </div>
-              ))}
+                return (
+                  <Link
+                    key={log.id}
+                    href={`/client/history/${log.id}`}
+                    className={`block bg-slate-900 border rounded-2xl p-4 transition-all hover:border-amber-400/50 shadow-md ${
+                      isReviewed 
+                        ? "border-slate-800 opacity-80" 
+                        : "border-amber-400/40 bg-gradient-to-r from-slate-900 to-amber-950/10"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-bold text-white text-sm">
+                        {log.programs?.title || "Séance libre"}
+                      </span>
+
+                      {isReviewed ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Lue par le coach
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/15 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/30 flex items-center gap-1 animate-pulse">
+                          <AlertCircle className="w-3 h-3" /> En attente de révision
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-800/80">
+                      <span>
+                        {new Date(log.created_at).toLocaleDateString("fr-FR", { 
+                          day: 'numeric', 
+                          month: 'short', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                      <span className="flex items-center gap-1 text-amber-400 font-bold">
+                        <span>Voir le rapport</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
