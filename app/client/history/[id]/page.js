@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { 
   ArrowLeft, Loader2, Clock, Dumbbell, 
-  ChevronDown, ChevronUp, CheckCircle2, AlertCircle 
+  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Play 
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -14,6 +14,7 @@ export default function StudentWorkoutHistoryPage() {
 
   const [loading, setLoading] = useState(true);
   const [programTitle, setProgramTitle] = useState("");
+  const [programId, setProgramId] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [openSessionId, setOpenSessionId] = useState(null);
 
@@ -30,42 +31,41 @@ export default function StudentWorkoutHistoryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Récupérer le titre du programme
+      let targetProgId = rawId;
+
+      // 1. Déterminer le titre et l'ID du programme
       const { data: programData } = await supabase
         .from("programs")
-        .select("title")
+        .select("id, title")
         .eq("id", rawId)
         .maybeSingle();
 
       if (programData) {
         setProgramTitle(programData.title);
-      }
-
-      // 2. Tenter de récupérer toutes les sessions liées à ce program_id pour cet élève
-      let { data: logsData, error: logsErr } = await supabase
-        .from("workout_logs")
-        .select("*, workout_log_entries(*)")
-        .eq("program_id", rawId)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      // 3. Fallback : si aucun log n'est trouvé par program_id, chercher si rawId était l'id direct d'un log
-      if (!logsData || logsData.length === 0) {
+        setProgramId(programData.id);
+      } else {
         const { data: singleLog } = await supabase
           .from("workout_logs")
-          .select("*, workout_log_entries(*), programs(title)")
+          .select("program_id, programs(id, title)")
           .eq("id", rawId)
           .maybeSingle();
 
-        if (singleLog) {
-          logsData = [singleLog];
-          if (singleLog.programs?.title) {
-            setProgramTitle(singleLog.programs.title);
-          }
+        if (singleLog?.programs) {
+          setProgramTitle(singleLog.programs.title);
+          setProgramId(singleLog.programs.id);
+          targetProgId = singleLog.programs.id;
         }
       }
 
-      if (logsErr && !logsData) throw logsErr;
+      // 2. Récupérer toutes les sessions réalisées pour ce programme
+      const { data: logsData, error: logsErr } = await supabase
+        .from("workout_logs")
+        .select("*, workout_log_entries(*)")
+        .eq("program_id", targetProgId)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (logsErr) throw logsErr;
 
       setSessions(logsData || []);
 
@@ -108,18 +108,33 @@ export default function StudentWorkoutHistoryPage() {
         <span>Retour à mon espace</span>
       </Link>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
-          Historique des entraînements
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-white mt-2">
-          {programTitle || "Séance d'entraînement"}
-        </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          {sessions.length} session{sessions.length > 1 ? "s" : ""} effectuée{sessions.length > 1 ? "s" : ""} au total.
-        </p>
+      {/* En-tête avec bouton de lancement */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+            Historique des entraînements
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-black text-white mt-2">
+            {programTitle || "Séance d'entraînement"}
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            {sessions.length} session{sessions.length > 1 ? "s" : ""} effectuée{sessions.length > 1 ? "s" : ""} au total.
+          </p>
+        </div>
+
+        {/* Bouton pour relancer la séance directement */}
+        {programId && (
+          <Link
+            href={`/client/workout/${programId}`}
+            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all w-full sm:w-auto justify-center"
+          >
+            <Play className="w-4 h-4 fill-slate-950" />
+            <span>Refaire cette séance</span>
+          </Link>
+        )}
       </div>
 
+      {/* Accordéon des sessions */}
       {sessions.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">
           Aucune session enregistrée pour cette séance.
@@ -137,7 +152,6 @@ export default function StudentWorkoutHistoryPage() {
               minute: "2-digit",
             });
 
-            // Détermination des exercices (via relation SQL ou via données JSON intégrées)
             const entries = session.workout_log_entries || session.log_data || session.exercises || [];
 
             return (
@@ -222,7 +236,7 @@ export default function StudentWorkoutHistoryPage() {
                       </div>
                     ) : (
                       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-400">
-                        Séance validée. Durée totale : <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
+                        Séance enregistrée. Durée totale : <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
                       </div>
                     )}
                   </div>
