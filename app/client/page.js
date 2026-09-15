@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
-  Loader2, Dumbbell, Clock, LogOut, User, Check, ChevronRight 
+  Loader2, Dumbbell, Clock, LogOut, User, Check, Play, History 
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,14 +22,12 @@ export default function StudentDashboardPage() {
     try {
       setLoading(true);
 
-      // 1. Utilisateur connecté
       const { data: { user }, error: authErr } = await supabase.auth.getUser();
       if (authErr || !user) {
         router.replace("/login");
         return;
       }
 
-      // 2. Profil élève
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
@@ -37,7 +35,6 @@ export default function StudentDashboardPage() {
         .single();
       setUserProfile(profile);
 
-      // 3. Programmes attribués à CET élève uniquement
       const { data: progData, error: progErr } = await supabase
         .from("programs")
         .select("*, exercises(count)")
@@ -47,7 +44,6 @@ export default function StudentDashboardPage() {
       if (progErr) throw progErr;
       setPrograms(progData || []);
 
-      // 4. Historique des séances réalisées pour repérer les séances complétées
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("id, program_id")
@@ -70,7 +66,6 @@ export default function StudentDashboardPage() {
     router.replace("/login");
   };
 
-  // Trouver tous les program_id des séances qui ont au moins une réalisation
   const completedProgramIds = new Set(logs.map((l) => l.program_id));
 
   if (loading) {
@@ -115,7 +110,7 @@ export default function StudentDashboardPage() {
         </div>
       </div>
 
-      {/* Liste unique des séances/programmes */}
+      {/* Liste des séances */}
       <div className="space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
           <Dumbbell className="w-4 h-4 text-amber-400" />
@@ -130,41 +125,56 @@ export default function StudentDashboardPage() {
           <div className="space-y-3">
             {programs.map((prog) => {
               const isDone = completedProgramIds.has(prog.id);
-              
-              // Si réalisée -> va vers l'historique des sessions
-              // Si pas réalisée -> va vers la page d'exécution de séance
-              const targetUrl = isDone 
-                ? `/client/history/${prog.id}` 
-                : `/client/workout/${prog.id}`;
 
               return (
-                <Link
+                <div
                   key={prog.id}
-                  href={targetUrl}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex justify-between items-center hover:border-amber-400/50 transition-all group shadow-md block"
+                  className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-md"
                 >
                   <div className="space-y-1">
-                    <h3 className="text-base font-bold text-white group-hover:text-amber-400 transition-colors">
-                      {prog.title}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-white">
+                        {prog.title}
+                      </h3>
+                      {isDone ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Déjà faite
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/10 text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-400/20 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> À faire
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-500">
                       {prog.exercises?.[0]?.count || 0} exercice(s)
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    {isDone ? (
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/30 flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5" /> Réalisée (Voir l'historique)
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/10 text-amber-400 px-3 py-1.5 rounded-full border border-amber-400/20 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" /> À faire
-                      </span>
+                  {/* Boutons d'action */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {/* Bouton pour relancer la séance */}
+                    <Link
+                      href={`/client/workout/${prog.id}`}
+                      className="flex-1 sm:flex-none bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-slate-950" />
+                      <span>{isDone ? "Refaire" : "Démarrer"}</span>
+                    </Link>
+
+                    {/* Bouton pour voir l'historique des sessions (uniquement si au moins 1 réalisation) */}
+                    {isDone && (
+                      <Link
+                        href={`/client/history/${prog.id}`}
+                        className="flex-1 sm:flex-none bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white font-bold px-3.5 py-2.5 rounded-xl text-xs border border-slate-800 flex items-center justify-center gap-1.5 transition-all"
+                        title="Consulter l'historique des sessions"
+                      >
+                        <History className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Historique</span>
+                      </Link>
                     )}
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-amber-400 transition-colors" />
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
