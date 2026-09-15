@@ -35,7 +35,7 @@ export default function CoachStudentDetailPage() {
       if (studentErr) throw studentErr;
       setStudent(studentData);
 
-      // 2. Récupérer l'historique des séances (workout_logs) de l'élève d'abord pour vérifier les programmes réalisés
+      // 2. Récupérer l'historique des séances (workout_logs) de l'élève
       const { data: logsData } = await supabase
         .from("workout_logs")
         .select("id, program_id, created_at, duration_seconds, coach_reviewed, programs(title)")
@@ -112,7 +112,7 @@ export default function CoachStudentDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* COLONNE 1 : Programmes assignés avec statut visuel et coche */}
+        {/* COLONNE 1 : Programmes assignés cliquables avec statut visuel */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Dumbbell className="w-4 h-4 text-amber-400" />
@@ -129,13 +129,14 @@ export default function CoachStudentDetailPage() {
                 const isRealised = completedProgramIds.has(prog.id);
 
                 return (
-                  <div
+                  <Link
                     key={prog.id}
-                    className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3 shadow-md"
+                    href={`/coach/history/program/${prog.id}?student=${studentId}`}
+                    className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-amber-400/50 hover:bg-slate-850/50 transition-all group cursor-pointer shadow-md block"
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-sm font-bold text-white">{prog.title}</h3>
+                        <h3 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">{prog.title}</h3>
                         <span className="text-[10px] text-slate-500 font-medium">{prog.exercises?.[0]?.count || 0} exercices</span>
                       </div>
 
@@ -150,14 +151,19 @@ export default function CoachStudentDetailPage() {
                         </span>
                       )}
                     </div>
-                  </div>
+
+                    <div className="text-[11px] text-slate-500 group-hover:text-amber-400 font-bold transition-colors pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                      <span>Voir l'historique du programme</span>
+                      <History className="w-3.5 h-3.5" />
+                    </div>
+                  </Link>
                 );
               })}
             </div>
           )}
         </div>
 
-        {/* COLONNE 2 : Derniers entraînements (Accès rapide aux rapports) */}
+        {/* COLONNE 2 : Derniers entraînements à suivre */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Calendar className="w-4 h-4 text-amber-400" />
