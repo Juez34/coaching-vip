@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, Suspense } from "react";
 import { supabase } from "../../../lib/supabase";
-import { ArrowLeft, Loader2, Plus, Trash2, Dumbbell, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Trash2, Dumbbell, Save, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -11,8 +11,7 @@ function NewProgramForm() {
   const studentIdFromUrl = searchParams.get("student");
 
   const [loading, setLoading] = useState(false);
-  const [students, setStudents] = useState([]);
-  const [selectedStudentId, setSelectedStudentId] = useState(studentIdFromUrl || "");
+  const [student, setStudent] = useState(null);
   const [title, setTitle] = useState("");
 
   const [exercises, setExercises] = useState([
@@ -20,26 +19,23 @@ function NewProgramForm() {
   ]);
 
   useEffect(() => {
-    fetchStudents();
-  }, []);
-
-  useEffect(() => {
     if (studentIdFromUrl) {
-      setSelectedStudentId(studentIdFromUrl);
+      fetchStudentProfile();
     }
   }, [studentIdFromUrl]);
 
-  const fetchStudents = async () => {
+  const fetchStudentProfile = async () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, email")
-        .order("full_name", { ascending: true });
+        .eq("id", studentIdFromUrl)
+        .single();
 
       if (error) throw error;
-      setStudents(data || []);
+      setStudent(data);
     } catch (err) {
-      console.error("Erreur chargement élèves :", err);
+      console.error("Erreur lors de la récupération de l'élève :", err);
     }
   };
 
@@ -65,30 +61,27 @@ function NewProgramForm() {
       return;
     }
 
-    if (!selectedStudentId) {
-      alert("Veuillez sélectionner un élève.");
+    if (!studentIdFromUrl) {
+      alert("Erreur : aucun élève n'est associé à la création de cette séance.");
       return;
     }
 
     try {
       setLoading(true);
 
-      // 1. Insertion du programme
+      // 1. Insertion du programme forcé sur l'ID de l'élève de l'URL
       const { data: programData, error: programErr } = await supabase
         .from("programs")
         .insert([
           {
             title: title.trim(),
-            student_id: selectedStudentId,
+            student_id: studentIdFromUrl,
           }
         ])
         .select()
         .single();
 
-      if (programErr) {
-        console.error("Erreur création programme Supabase :", programErr);
-        throw programErr;
-      }
+      if (programErr) throw programErr;
 
       // 2. Insertion des exercices associés
       const validExercises = exercises.filter(ex => ex.name.trim() !== "");
@@ -105,18 +98,14 @@ function NewProgramForm() {
           .from("exercises")
           .insert(exercisesToInsert);
 
-        if (exErr) {
-          console.error("Erreur création exercices Supabase :", exErr);
-          throw exErr;
-        }
+        if (exErr) throw exErr;
       }
 
-      // 3. Rafraîchissement et redirection
       router.refresh();
-      router.push(`/coach/students/${selectedStudentId}`);
+      router.push(`/coach/students/${studentIdFromUrl}`);
     } catch (err) {
-      console.error("Détail complet de l'erreur :", err);
-      alert(`Erreur Supabase : ${err.message || err.details || "Création impossible"}`);
+      console.error("Erreur Supabase :", err);
+      alert(`Erreur : ${err.message || "Création impossible"}`);
     } finally {
       setLoading(false);
     }
@@ -125,11 +114,11 @@ function NewProgramForm() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-2xl mx-auto pb-24">
       <Link 
-        href={selectedStudentId ? `/coach/students/${selectedStudentId}` : "/coach"} 
+        href={`/coach/students/${studentIdFromUrl}`} 
         className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span>Annuler et retourner</span>
+        <span>Retour au dossier élève</span>
       </Link>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 space-y-2">
@@ -140,24 +129,25 @@ function NewProgramForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Rappel fixe de l'élève (aucun choix possible) */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
-              Élève attribué
-            </label>
-            <select
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(e.target.value)}
-              required
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-400"
-            >
-              <option value="">-- Sélectionner un élève --</option>
-              {students.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {st.full_name || st.email}
-                </option>
-              ))}
-            </select>
+          <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider block">
+                  Élève destinataire
+                </span>
+                <span className="text-sm font-bold text-white">
+                  {student?.full_name || student?.email || "Chargement..."}
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold uppercase bg-amber-400/10 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/20">
+              Assignation directe
+            </span>
           </div>
 
           <div>
@@ -175,6 +165,7 @@ function NewProgramForm() {
           </div>
         </div>
 
+        {/* Liste des exercices */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-2">
