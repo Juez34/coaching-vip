@@ -1,9 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { 
-  Plus, LogOut, User, Users, Loader2, ChevronRight, Dumbbell, Calendar 
-} from "lucide-react";
+import { LogOut, User, Users, Loader2, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -32,11 +30,11 @@ export default function CoachDashboard() {
     try {
       setLoading(true);
       const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
+      if (!user?.user) return;
 
       const coachId = user.user.id;
 
-      // Récupération des élèves liés
+      // 1. Récupération des élèves via la table de liaison (student_coaches)
       const { data: multiCoachData } = await supabase
         .from("student_coaches")
         .select("student_id, profiles!student_coaches_student_id_fkey(*)")
@@ -44,6 +42,7 @@ export default function CoachDashboard() {
 
       let studentList = (multiCoachData || []).map((item) => item.profiles).filter(Boolean);
 
+      // 2. Récupération des élèves rattachés directement par coach_id dans profiles
       const { data: directData } = await supabase
         .from("profiles")
         .select("*")
@@ -58,7 +57,7 @@ export default function CoachDashboard() {
 
       setStudents(studentList);
     } catch (err) {
-      console.error("Erreur de chargement des élèves:", err);
+      console.error("Erreur de chargement des élèves :", err);
     } finally {
       setLoading(false);
     }
@@ -91,14 +90,6 @@ export default function CoachDashboard() {
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/coach/new-program"
-            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2 rounded-xl flex items-center gap-2 transition-all text-xs shadow-lg"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Créer un Programme</span>
-          </Link>
-
           <Link
             href="/profile"
             className="text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors"
