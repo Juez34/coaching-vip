@@ -1,111 +1,76 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { 
-  Play, Dumbbell, UserCheck, LogOut, Search, User, Plus, Loader2, Trash2, CheckCircle2, History 
-} from "lucide-react";
+import { Loader2, Dumbbell, Calendar, CheckCircle2, Clock, LogOut, User } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-export default function StudentDashboard() {
+export default function StudentDashboardPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState(null);
-
-  const [myCoaches, setMyCoaches] = useState([]);
   const [programs, setPrograms] = useState([]);
-  const [completedProgramIds, setCompletedProgramIds] = useState(new Set());
-
-  // Recherche & Ajout de Coach
-  const [showCoachSearch, setShowCoachSearch] = useState(false);
-  const [coachQuery, setCoachQuery] = useState("");
-  const [featuredCoach, setFeaturedCoach] = useState(null);
+  const [completedLogs, setCompletedLogs] = useState([]);
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
-    initData();
+    fetchStudentData();
   }, []);
 
-  const initData = async () => {
+  const fetchStudentData = async () => {
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return (window.location.href = "/login");
 
-      setCurrentUserId(user.id);
-      await loadCoachesAndPrograms(user.id);
-      fetchFeaturedCoach();
+      // 1. Récupération impérative de l'utilisateur connecté
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) {
+        router.replace("/login");
+        return;
+      }
+
+      // 2. Profil de l'élève connecté
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      setUserProfile(profile);
+
+      // 3. 🔒 Filtre STRICT : uniquement les programmes assignés à CET élève
+      const { data: progData, error: progErr } = await supabase
+        .from("programs")
+        .select("*, exercises(count)")
+        .eq("student_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (progErr) throw progErr;
+      setPrograms(progData || []);
+
+      // 4. 🔒 Filtre STRICT : uniquement les séances exécutées par CET élève
+      const { data: logsData, error: logsErr } = await supabase
+        .from("workout_logs")
+        .select("*, programs(title)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (logsErr) throw logsErr;
+      setCompletedLogs(logsData || []);
+
     } catch (err) {
-      console.error("Erreur d'initialisation:", err);
+      console.error("Erreur de chargement du tableau de bord élève :", err);
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadCoachesAndPrograms = async (userId) => {
-    // 1. Charger les coachs
-    const { data: coachesData } = await supabase
-      .from("student_coaches")
-      .select("coach_id, profiles!student_coaches_coach_id_fkey(id, full_name, email)")
-      .eq("student_id", userId);
-
-    const formattedCoaches = (coachesData || []).map(c => c.profiles);
-    setMyCoaches(formattedCoaches);
-
-    // 2. Charger les programmes
-    let query = supabase.from("programs").select("*, exercises(count)");
-    if (formattedCoaches.length > 0) {
-      const coachIds = formattedCoaches.map(c => c.id);
-      query = query.or(`student_id.eq.${userId},coach_id.in.(${coachIds.join(",")}),user_id.eq.${userId}`);
-    } else {
-      query = query.or(`student_id.eq.${userId},user_id.eq.${userId}`);
-    }
-
-    const { data: programData } = await query;
-    setPrograms(programData || []);
-
-    // 3. Charger les logs d'entraînement
-    const { data: logsData } = await supabase
-      .from("workout_logs")
-      .select("program_id, user_id")
-      .eq("user_id", userId);
-
-    const logProgramIds = (logsData || []).map(l => String(l.program_id));
-    const completedSet = new Set(logProgramIds);
-    setCompletedProgramIds(completedSet);
-  };
-
-  const fetchFeaturedCoach = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("email", "pauline.marion@hotmail.fr")
-      .maybeSingle();
-
-    if (data) setFeaturedCoach(data);
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.clear();
     sessionStorage.clear();
-    window.location.replace("/login");
+    router.replace("/login");
   };
 
-  const handleDeleteProgram = async (programId) => {
-    const confirmDelete = confirm("Voulez-vous vraiment supprimer cette séance ?");
-    if (!confirmDelete) return;
+  const completedProgramIds = new Set(completedLogs.map((l) => l.program_id));
 
-    try {
-      await supabase.from("exercises").delete().eq("program_id", programId);
-      const { error } = await supabase.from("programs").delete().eq("id", programId);
-      if (error) throw error;
-
-      setPrograms(programs.filter(p => p.id !== programId));
-      alert("Séance supprimée avec succès.");
-    } catch (err) {
-      alert("Erreur lors de la suppression : " + err.message);
-    }
-  };
-
-  // Gestion du rendu conditionnel si le chargement est en cours
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
@@ -114,118 +79,126 @@ export default function StudentDashboard() {
     );
   }
 
-  // Rendu principal de la page
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-4xl mx-auto pb-28">
-      {/* Header */}
-      <header className="flex justify-between items-center mb-6 pb-6 border-b border-slate-800">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-4xl mx-auto pb-24">
+      {/* En-tête Élève */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <span className="text-[11px] font-extrabold tracking-widest text-amber-400 uppercase bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20 mb-2 inline-block">
-            ESPACE ÉLÈVE
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+            Espace Athlète
           </span>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">Mes Séances</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-white mt-2">
+            Bienvenue, {userProfile?.full_name || "Sportif"}
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Retrouve tes programmes d'entraînement personnels et ton historique.
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/profile" className="text-xs font-bold text-slate-300 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors">
+          <Link
+            href="/profile"
+            className="text-xs font-bold text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors"
+          >
             <User className="w-4 h-4 text-amber-400" />
             <span className="hidden sm:inline">Mon Profil</span>
           </Link>
-          <button onClick={handleLogout} className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 transition-colors">
+          <button
+            onClick={handleLogout}
+            className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-950 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors"
+            title="Déconnexion"
+          >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
-      </header>
-
-      {/* Liste des programmes */}
-      <div className="space-y-4 mb-8">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Programmes Disponibles</h2>
-        
-        {programs.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400">
-            Aucune séance disponible.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {programs.map((prog) => {
-              const isCompleted = completedProgramIds.has(String(prog.id));
-
-              return (
-                <div key={prog.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-amber-400/50 transition-all">
-                  <div>
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 text-amber-400">
-                        {prog.user_id ? "Séance Perso" : "Programme Coach"}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500 font-medium">
-                          {prog.exercises?.[0]?.count || 0} exercices
-                        </span>
-                        {prog.user_id && (
-                          <button
-                            onClick={() => handleDeleteProgram(prog.id)}
-                            className="text-slate-500 hover:text-rose-400 p-1 transition-colors"
-                            title="Supprimer la séance"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <h3 className="text-lg font-bold text-white tracking-tight">{prog.title}</h3>
-                    {prog.coach_note && (
-                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">💡 {prog.coach_note}</p>
-                    )}
-                  </div>
-
-                  {/* Actions dynamiques */}
-                  {isCompleted ? (
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold uppercase text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-md border border-emerald-400/20 block text-center flex items-center justify-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Séance Terminée
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Link
-                          href={`/client/history/${prog.id}`}
-                          className="py-2.5 bg-slate-950 hover:bg-slate-800 text-emerald-400 border border-emerald-400/30 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
-                        >
-                          <History className="w-3.5 h-3.5" />
-                          <span>Historique</span>
-                        </Link>
-                        <Link
-                          href={`/client/workout/${prog.id}`}
-                          className="py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-slate-950" />
-                          <span>Refaire</span>
-                        </Link>
-                      </div>
-                    </div>
-                  ) : (
-                    <Link
-                      href={`/client/workout/${prog.id}`}
-                      className="w-full py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
-                    >
-                      <Play className="w-4 h-4 fill-slate-950" />
-                      <span>DÉMARRER LA SÉANCE</span>
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
-      {/* Bouton de création de séance libre */}
-      <div className="pt-4 border-t border-slate-800">
-        <Link
-          href="/client/create"
-          className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-400/30 font-extrabold text-sm rounded-2xl shadow-lg flex items-center justify-center gap-2.5 transition-all"
-        >
-          <Plus className="w-5 h-5 text-amber-400" />
-          <span>CRÉER UNE SÉANCE LIBRE</span>
-        </Link>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Mes programmes attribués */}
+        <div className="space-y-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <Dumbbell className="w-4 h-4 text-amber-400" />
+            <span>Mes Programmes ({programs.length})</span>
+          </h2>
+
+          {programs.length === 0 ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-slate-400 text-xs">
+              Aucun programme ne t'a été assigné pour le moment.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {programs.map((prog) => {
+                const isDone = completedProgramIds.has(prog.id);
+
+                return (
+                  <Link
+                    key={prog.id}
+                    href={`/client/workout/${prog.id}`}
+                    className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex justify-between items-center hover:border-amber-400/50 transition-all block shadow-md"
+                  >
+                    <div>
+                      <h3 className="text-sm font-bold text-white">{prog.title}</h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {prog.exercises?.[0]?.count || 0} exercice(s)
+                      </p>
+                    </div>
+
+                    {isDone ? (
+                      <span className="text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Fait
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold uppercase bg-amber-400/10 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/20 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> À faire
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Historique des séances */}
+        <div className="space-y-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-amber-400" />
+            <span>Mon Historique ({completedLogs.length})</span>
+          </h2>
+
+          {completedLogs.length === 0 ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-slate-400 text-xs">
+              Tu n'as pas encore validé de séance.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {completedLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex justify-between items-center shadow-md"
+                >
+                  <div>
+                    <h4 className="text-sm font-bold text-white">
+                      {log.programs?.title || "Séance libre"}
+                    </h4>
+                    <span className="text-[11px] text-slate-500">
+                      {new Date(log.created_at).toLocaleDateString("fr-FR", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+
+                  <span className="text-[10px] font-bold uppercase bg-slate-950 text-slate-400 px-2.5 py-1 rounded-lg border border-slate-800">
+                    Complétée
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
