@@ -66,7 +66,16 @@ export default function StudentDashboard() {
       .from("workout_logs")
       .select("program_id, user_id")
       .eq("user_id", userId);
+// 📱 AJOUTE CETTE LIGNE TEMPORAIREMENT POUR TESTER SUR MOBILE :
+    alert(`Debug - ID user: ${userId} | Logs trouvés: ${logsData ? logsData.length : 0}`);
 
+    if (logsError) {
+      console.error("Erreur chargement workout_logs :", logsError);
+    } else {
+      const completedSet = new Set((logsData || []).map(l => Number(l.program_id)));
+      setCompletedProgramIds(completedSet);
+    }
+    
     if (logsError) {
       console.error("Erreur chargement workout_logs :", logsError);
     } else {
