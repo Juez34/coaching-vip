@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { 
-  ArrowLeft, Loader2, Calendar, Clock, Dumbbell, 
+  ArrowLeft, Loader2, Clock, Dumbbell, 
   ChevronDown, ChevronUp, CheckCircle2, AlertCircle 
 } from "lucide-react";
 import Link from "next/link";
@@ -30,48 +30,47 @@ export default function StudentWorkoutHistoryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      let targetProgramId = rawId;
-
-      // 1. Déterminer si l'ID passé est un log_id ou un program_id (comme chez le coach)
-      const { data: targetLog } = await supabase
-        .from("workout_logs")
-        .select("id, program_id, programs(title)")
+      // 1. Récupérer le titre du programme
+      const { data: programData } = await supabase
+        .from("programs")
+        .select("title")
         .eq("id", rawId)
         .maybeSingle();
 
-      if (targetLog) {
-        targetProgramId = targetLog.program_id;
-        if (targetLog.programs?.title) {
-          setProgramTitle(targetLog.programs.title);
-        }
-      } else {
-        const { data: programData } = await supabase
-          .from("programs")
-          .select("title")
-          .eq("id", targetProgramId)
-          .maybeSingle();
-
-        if (programData) {
-          setProgramTitle(programData.title);
-        }
+      if (programData) {
+        setProgramTitle(programData.title);
       }
 
-      // 2. Récupérer l'intégralité des sessions avec leurs entrées d'exercices (workout_log_entries)
-      const { data: logsData, error: logsErr } = await supabase
+      // 2. Tenter de récupérer toutes les sessions liées à ce program_id pour cet élève
+      let { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("*, workout_log_entries(*)")
-        .eq("program_id", targetProgramId)
+        .eq("program_id", rawId)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (logsErr) throw logsErr;
+      // 3. Fallback : si aucun log n'est trouvé par program_id, chercher si rawId était l'id direct d'un log
+      if (!logsData || logsData.length === 0) {
+        const { data: singleLog } = await supabase
+          .from("workout_logs")
+          .select("*, workout_log_entries(*), programs(title)")
+          .eq("id", rawId)
+          .maybeSingle();
+
+        if (singleLog) {
+          logsData = [singleLog];
+          if (singleLog.programs?.title) {
+            setProgramTitle(singleLog.programs.title);
+          }
+        }
+      }
+
+      if (logsErr && !logsData) throw logsErr;
 
       setSessions(logsData || []);
 
-      // 3. Ouvrir automatiquement la session demandée ou la plus récente
       if (logsData && logsData.length > 0) {
-        const matchingSession = logsData.find((s) => s.id === rawId);
-        setOpenSessionId(matchingSession ? matchingSession.id : logsData[0].id);
+        setOpenSessionId(logsData[0].id);
       }
     } catch (err) {
       console.error("Erreur lors du chargement de l'historique :", err);
@@ -101,7 +100,6 @@ export default function StudentWorkoutHistoryPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-3xl mx-auto pb-24">
-      {/* Retour dashboard client */}
       <Link
         href="/client"
         className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6 transition-colors"
@@ -110,7 +108,6 @@ export default function StudentWorkoutHistoryPage() {
         <span>Retour à mon espace</span>
       </Link>
 
-      {/* En-tête de la séance */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8">
         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
           Historique des entraînements
@@ -123,7 +120,6 @@ export default function StudentWorkoutHistoryPage() {
         </p>
       </div>
 
-      {/* Accordéon des sessions (Identique au coach) */}
       {sessions.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">
           Aucune session enregistrée pour cette séance.
@@ -141,6 +137,9 @@ export default function StudentWorkoutHistoryPage() {
               minute: "2-digit",
             });
 
+            // Détermination des exercices (via relation SQL ou via données JSON intégrées)
+            const entries = session.workout_log_entries || session.log_data || session.exercises || [];
+
             return (
               <div
                 key={session.id}
@@ -148,7 +147,6 @@ export default function StudentWorkoutHistoryPage() {
                   isOpen ? "bg-slate-900 border-amber-400/50" : "bg-slate-900/60 border-slate-800"
                 }`}
               >
-                {/* En-tête cliquable de l'accordéon */}
                 <button
                   onClick={() => toggleSession(session.id)}
                   className="w-full p-4 sm:p-5 flex items-center justify-between text-left cursor-pointer hover:bg-slate-850 transition-colors"
@@ -184,7 +182,6 @@ export default function StudentWorkoutHistoryPage() {
                   </div>
                 </button>
 
-                {/* Contenu dépliable de la session */}
                 {isOpen && (
                   <div className="p-4 sm:p-5 border-t border-slate-800 space-y-4 bg-slate-950/50">
                     <div className="flex justify-between items-center text-xs text-slate-400 sm:hidden pb-2 border-b border-slate-800">
@@ -197,27 +194,26 @@ export default function StudentWorkoutHistoryPage() {
                       <span>Détail des exercices</span>
                     </h4>
 
-                    {/* Liste exacte des exercices depuis workout_log_entries */}
-                    {session.workout_log_entries && session.workout_log_entries.length > 0 ? (
+                    {entries && entries.length > 0 ? (
                       <div className="space-y-3">
-                        {session.workout_log_entries.map((entry, idx) => (
+                        {entries.map((entry, idx) => (
                           <div
                             key={entry.id || idx}
                             className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs"
                           >
                             <span className="font-bold text-white">
-                              {entry.exercise_name || `Exercice #${idx + 1}`}
+                              {entry.exercise_name || entry.name || `Exercice #${idx + 1}`}
                             </span>
                             <div className="flex gap-2.5 text-slate-300">
                               <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                <strong className="text-amber-400">{entry.sets_completed || "-"}</strong> séries
+                                <strong className="text-amber-400">{entry.sets_completed || entry.sets || "-"}</strong> séries
                               </span>
                               <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                <strong className="text-amber-400">{entry.reps_completed || "-"}</strong> reps
+                                <strong className="text-amber-400">{entry.reps_completed || entry.reps || "-"}</strong> reps
                               </span>
-                              {entry.weight_used && (
+                              {(entry.weight_used || entry.weight) && (
                                 <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                  <strong className="text-amber-400">{entry.weight_used}</strong> kg
+                                  <strong className="text-amber-400">{entry.weight_used || entry.weight}</strong> kg
                                 </span>
                               )}
                             </div>
@@ -225,9 +221,9 @@ export default function StudentWorkoutHistoryPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-500">
-                        Aucune donnée d'exercice enregistrée pour cette session.
-                      </p>
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-400">
+                        Séance validée. Durée totale : <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
+                      </div>
                     )}
                   </div>
                 )}
