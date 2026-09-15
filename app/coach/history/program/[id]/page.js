@@ -58,8 +58,11 @@ export default function CoachProgramHistoryPage() {
       const { data: logsData } = await query;
       setLogs(logsData || []);
 
-      if (logsData && logsData.length > 0) {
+      // Si une seule session réalisée, on la déroule automatiquement. Sinon, tout est fermé par défaut.
+      if (logsData && logsData.length === 1) {
         setOpenLogIds({ [logsData[0].id]: true });
+      } else {
+        setOpenLogIds({});
       }
 
       if (studentId) {
@@ -84,7 +87,6 @@ export default function CoachProgramHistoryPage() {
     }));
   };
 
-  // Calcul du résumé global des séances pour affichage sous le titre
   const totalSessions = logs.length;
   const lastSessionDate = totalSessions > 0 && logs[0].created_at 
     ? new Date(logs[0].created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric' })
@@ -134,7 +136,6 @@ export default function CoachProgramHistoryPage() {
           )}
         </div>
 
-        {/* 🌟 Résumé de la séance sous le titre (similaire à l'élève) */}
         {totalSessions > 0 && (
           <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800 text-[11px]">
             <span className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-300 flex items-center gap-1.5">
@@ -164,20 +165,33 @@ export default function CoachProgramHistoryPage() {
             const completedSets = log.completed_sets || {};
             const exerciseComments = log.exercise_comments || {};
 
+            // Calcul rapide du résumé des exercices pour l'en-tête (ex: nombre d'exercices validés)
+            const totalExercises = exercisesList.length;
+            const validatedExercisesCount = exercisesList.filter(ex => {
+              // Vérifie si au moins une série de l'exercice a été validée
+              return Array.from({ length: ex.sets || 1 }).some((_, sIdx) => completedSets[`${ex.id}-${sIdx}`] === true);
+            }).length;
+
             return (
               <div key={log.id || index} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg transition-all">
                 <button
                   onClick={() => toggleAccordion(log.id)}
-                  className="w-full p-4 flex flex-wrap justify-between items-center bg-slate-900 hover:bg-slate-850 transition-colors text-left cursor-pointer gap-2"
+                  className="w-full p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 hover:bg-slate-850 transition-colors text-left cursor-pointer gap-3"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold bg-emerald-400/10 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-400/20 text-xs flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {log.created_at ? new Date(log.created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Date inconnue"}
-                    </span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold bg-emerald-400/10 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-400/20 text-xs flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {log.created_at ? new Date(log.created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Date inconnue"}
+                      </span>
+                    </div>
+                    {/* Résumé de la séance dans l'en-tête */}
+                    <p className="text-[11px] text-slate-400 pl-0.5">
+                      Résumé : <strong className="text-slate-200">{validatedExercisesCount} / {totalExercises} exercices touchés</strong> • Durée : <strong className="text-amber-400">{Math.floor((log.duration_seconds || 0) / 60)} min</strong>
+                    </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800">
                     {log.coach_reviewed ? (
                       <span className="text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" /> Lue
@@ -187,11 +201,6 @@ export default function CoachProgramHistoryPage() {
                         À examiner
                       </span>
                     )}
-
-                    <span className="font-mono text-xs text-slate-300 bg-slate-950 px-2 py-1 rounded-md border border-slate-800 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-400" />
-                      {Math.floor((log.duration_seconds || 0) / 60)} min
-                    </span>
 
                     <div className="w-7 h-7 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-amber-400">
                       {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
