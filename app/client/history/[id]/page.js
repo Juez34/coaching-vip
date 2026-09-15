@@ -1,19 +1,18 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
-import { ArrowLeft, Loader2, Dumbbell, MessageSquare } from "lucide-react";
+import { ArrowLeft, Loader2, Dumbbell, MessageSquare, Calendar, Clock } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
 export default function WorkoutHistoryPage() {
   const params = useParams();
-  // On s'assure de récupérer l'ID proprement qu'il soit sous forme de string ou de tableau
   const programId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
 
   const [loading, setLoading] = useState(true);
   const [program, setProgram] = useState(null);
+  const [exercisesMap, setExercisesMap] = useState({});
   const [logs, setLogs] = useState([]);
-  const [debugInfo, setDebugInfo] = useState("");
 
   useEffect(() => {
     if (programId) {
@@ -25,43 +24,39 @@ export default function WorkoutHistoryPage() {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setDebugInfo("Utilisateur non connecté");
-        return;
-      }
-
-      setDebugInfo(`User ID: ${user.id} | Program ID: ${programId}`);
+      if (!user) return;
 
       // 1. Récupérer le programme
-      const { data: progData, error: progErr } = await supabase
+      const { data: progData } = await supabase
         .from("programs")
         .select("*")
         .eq("id", programId)
         .maybeSingle();
-
-      if (progErr) {
-        console.error("Erreur prog:", progErr);
-      }
       setProgram(progData);
 
-      // 2. Récupérer les logs pour ce programme et cet utilisateur
-      const { data: logsData, error: logsErr } = await supabase
+      // 2. Récupérer les exercices du programme pour associer les IDs à de vrais noms
+      const { data: exData } = await supabase
+        .from("exercises")
+        .select("id, name")
+        .eq("program_id", programId);
+      
+      const map = {};
+      (exData || []).forEach((ex) => {
+        map[ex.id] = ex.name;
+      });
+      setExercisesMap(map);
+
+      // 3. Récupérer les logs
+      const { data: logsData } = await supabase
         .from("workout_logs")
         .select("*")
         .eq("program_id", programId)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (logsErr) {
-        console.error("Erreur logs:", logsErr);
-        setDebugInfo((prev) => prev + ` | Erreur logs: ${logsErr.message}`);
-      }
-
-      console.log("Logs récupérés dans la page history :", logsData);
       setLogs(logsData || []);
     } catch (err) {
-      console.error("Erreur globale :", err);
-      setDebugInfo((prev) => prev + ` | Exception: ${err.message}`);
+      console.error("Erreur :", err);
     } finally {
       setLoading(false);
     }
@@ -90,50 +85,59 @@ export default function WorkoutHistoryPage() {
         <p className="text-xs text-slate-400">
           {logs.length} session{logs.length > 1 ? "s" : ""} enregistrée{logs.length > 1 ? "s" : ""}
         </p>
-        
-        {/* Ligne de debug visible directement sur l'écran pour valider */}
-        <p className="text-[10px] text-slate-500 font-mono bg-slate-950 p-2 rounded border border-slate-800">
-          Debug info: {debugInfo}
-        </p>
       </div>
 
       {logs.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 space-y-2">
-          <p className="font-bold text-white">Aucun historique trouvé pour cette session exacte.</p>
-          <p className="text-xs text-slate-500">
-            Vérifie dans la boîte de debug ci-dessus si le Program ID correspond bien à celui de tes logs.
-          </p>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400">
+          Aucun historique trouvé pour cette session.
         </div>
       ) : (
         <div className="space-y-6">
           {logs.map((log, index) => (
             <div key={log.id || index} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-lg">
               {/* En-tête de session */}
-              <div className="flex justify-between items-center pb-3 border-b border-slate-800 text-xs">
-                <span className="font-black bg-emerald-400/10 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-400/20">
-                  Session du {new Date(log.created_at).toLocaleDateString("fr-FR")} à {new Date(log.created_at).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
+              <div className="flex flex-wrap justify-between items-center pb-3 border-b border-slate-800 text-xs gap-2">
+                <span className="font-black bg-emerald-400/10 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-400/20 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  {log.created_at ? new Date(log.created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Date inconnue"}
                 </span>
-                <span className="font-mono text-slate-300 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                  ⏱️ {Math.floor((log.duration_seconds || 0) / 60)} min
+                <span className="font-mono text-slate-300 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  {Math.floor((log.duration_seconds || 0) / 60)} min
                 </span>
               </div>
 
-              {/* Performances brutes */}
+              {/* Performances classées par exercice */}
               {log.actual_performances && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <h3 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-1.5">
                     <Dumbbell className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Performances</span>
+                    <span>Détail des performances</span>
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {Object.entries(log.actual_performances).map(([k, perf], i) => (
-                      <div key={i} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs flex justify-between">
-                        <span className="text-slate-400">Série / ID: {k}</span>
-                        <span className="font-bold text-white">
-                          {perf?.reps || "?"} reps @ {perf?.weight || "?"}
-                        </span>
-                      </div>
-                    ))}
+                  
+                  <div className="space-y-2">
+                    {Object.entries(log.actual_performances).map(([key, perf], i) => {
+                      // La clé stockée est sous la format "exerciceId-setIndex"
+                      const parts = key.split("-");
+                      // On récupère l'ID de l'exercice (tout sauf le dernier élément qui est l'index de série)
+                      const exerciseId = parts.slice(0, -1).join("-");
+                      const setIndex = parseInt(parts[parts.length - 1], 10) + 1;
+
+                      // On récupère le vrai nom de l'exercice via notre map
+                      const exerciseName = exercisesMap[exerciseId] || "Exercice personnalisé";
+
+                      return (
+                        <div key={i} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs flex justify-between items-center">
+                          <div>
+                            <span className="font-bold text-white block">{exerciseName}</span>
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wide">Série {setIndex}</span>
+                          </div>
+                          <span className="font-mono font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
+                            {perf?.reps || "?"} reps @ {perf?.weight || "?"}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -142,7 +146,7 @@ export default function WorkoutHistoryPage() {
               {log.student_comment && (
                 <div className="bg-amber-400/10 p-3 rounded-xl border border-amber-400/20 text-xs space-y-1">
                   <span className="font-bold text-amber-400 uppercase text-[10px] flex items-center gap-1">
-                    <MessageSquare className="w-3 h-3" /> Commentaire :
+                    <MessageSquare className="w-3 h-3" /> Commentaire global :
                   </span>
                   <p className="text-amber-200/90 italic">"{log.student_comment}"</p>
                 </div>
