@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
-import { ArrowLeft, Loader2, Dumbbell, Calendar, Clock, CheckCircle2, AlertCircle, ChevronRight } from "lucide-react";
+import { ArrowLeft, Loader2, Dumbbell, Calendar, Clock, CheckCircle2, AlertCircle, ChevronRight, History } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
@@ -35,7 +35,7 @@ export default function CoachStudentDetailPage() {
       if (studentErr) throw studentErr;
       setStudent(studentData);
 
-      // 2. Récupérer les programmes de l'élève
+      // 2. Récupérer les programmes de l'élève avec le nombre d'exercices
       const { data: progData } = await supabase
         .from("programs")
         .select("*, exercises(count)")
@@ -56,6 +56,18 @@ export default function CoachStudentDetailPage() {
       setLoading(false);
     }
   };
+
+  // Filtrage intelligent pour le bloc "Derniers entraînements" :
+  // On prend d'abord les séances non lues (coach_reviewed === false).
+  // S'il n'y en a pas assez, on complète avec les dernières séances lues pour arriver à 3 max.
+  const unreviewedLogs = logs.filter((l) => !l.coach_reviewed);
+  const reviewedLogs = logs.filter((l) => l.coach_reviewed);
+  
+  let displayedLogs = [...unreviewedLogs];
+  if (displayedLogs.length < 3) {
+    const needed = 3 - displayedLogs.length;
+    displayedLogs = [...displayedLogs, ...reviewedLogs.slice(0, needed)];
+  }
 
   if (loading) {
     return (
@@ -98,7 +110,7 @@ export default function CoachStudentDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* COLONNE 1 : Programmes de l'élève */}
+        {/* COLONNE 1 : Programmes assignés (Désormais cliquables pour voir l'historique par programme) */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Dumbbell className="w-4 h-4 text-amber-400" />
@@ -112,22 +124,30 @@ export default function CoachStudentDetailPage() {
           ) : (
             <div className="space-y-3">
               {programs.map((prog) => (
-                <div key={prog.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex justify-between items-center">
+                <Link
+                  key={prog.id}
+                  href={`/coach/history/program/${prog.id}?student=${studentId}`}
+                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex justify-between items-center hover:border-amber-400/50 hover:bg-slate-850/50 transition-all group cursor-pointer shadow-md block"
+                >
                   <div>
-                    <h3 className="text-sm font-bold text-white">{prog.title}</h3>
+                    <h3 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors">{prog.title}</h3>
                     <span className="text-[10px] text-slate-500 font-medium">{prog.exercises?.[0]?.count || 0} exercices</span>
                   </div>
-                </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 group-hover:text-amber-400 font-bold transition-colors">
+                    <History className="w-4 h-4" />
+                    <span>Historique</span>
+                  </div>
+                </Link>
               ))}
             </div>
           )}
         </div>
 
-        {/* COLONNE 2 : Dernières séances réalisées (Historique interactif avec indicateur visuel) */}
+        {/* COLONNE 2 : Derniers entraînements (Priorité aux non-lus, ou 3 derniers récents) */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Calendar className="w-4 h-4 text-amber-400" />
-            <span>Derniers entraînements ({logs.length})</span>
+            <span>Derniers entraînements à suivre</span>
           </h2>
 
           {logs.length === 0 ? (
@@ -136,7 +156,7 @@ export default function CoachStudentDetailPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {logs.map((log) => {
+              {displayedLogs.map((log) => {
                 const isReviewed = log.coach_reviewed;
 
                 return (
@@ -144,7 +164,7 @@ export default function CoachStudentDetailPage() {
                     key={log.id}
                     href={`/coach/history/${log.id}`}
                     className={`block bg-slate-900 border rounded-2xl p-4 transition-all hover:border-amber-400/50 shadow-md ${
-                      isReviewed ? "border-slate-800" : "border-amber-400/40 bg-gradient-to-r from-slate-900 to-amber-950/10"
+                      isReviewed ? "border-slate-800 opacity-80" : "border-amber-400/40 bg-gradient-to-r from-slate-900 to-amber-950/10"
                     }`}
                   >
                     <div className="flex justify-between items-start mb-2">
@@ -152,10 +172,9 @@ export default function CoachStudentDetailPage() {
                         {log.programs?.title || "Séance libre"}
                       </span>
 
-                      {/* 🌟 Badge visuel ultra clair pour le statut de lecture */}
                       {isReviewed ? (
                         <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Séance lue
+                          <CheckCircle2 className="w-3 h-3" /> Lue
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/15 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/30 flex items-center gap-1 animate-pulse">
