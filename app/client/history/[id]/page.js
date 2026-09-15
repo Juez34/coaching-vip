@@ -33,7 +33,7 @@ export default function StudentWorkoutHistoryPage() {
 
       let targetProgId = rawId;
 
-      // 1. Déterminer le titre et l'ID du programme
+      // 1. Récupérer le programme
       const { data: programData } = await supabase
         .from("programs")
         .select("id, title")
@@ -44,6 +44,7 @@ export default function StudentWorkoutHistoryPage() {
         setProgramTitle(programData.title);
         setProgramId(programData.id);
       } else {
+        // Si rawId est un log_id direct
         const { data: singleLog } = await supabase
           .from("workout_logs")
           .select("program_id, programs(id, title)")
@@ -57,15 +58,29 @@ export default function StudentWorkoutHistoryPage() {
         }
       }
 
-      // 2. Récupérer toutes les sessions réalisées pour ce programme
-      const { data: logsData, error: logsErr } = await supabase
+      // 2. Charger les sessions (Tentative 1 : avec workout_log_entries)
+      let logsData = null;
+      
+      const { data: dataWithEntries, error: errEntries } = await supabase
         .from("workout_logs")
         .select("*, workout_log_entries(*)")
         .eq("program_id", targetProgId)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (logsErr) throw logsErr;
+      if (!errEntries && dataWithEntries) {
+        logsData = dataWithEntries;
+      } else {
+        // Tentative 2 : Fallback sans table de liaison (si workout_log_entries n'existe pas)
+        const { data: rawLogs } = await supabase
+          .from("workout_logs")
+          .select("*")
+          .eq("program_id", targetProgId)
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+        
+        logsData = rawLogs;
+      }
 
       setSessions(logsData || []);
 
@@ -100,6 +115,7 @@ export default function StudentWorkoutHistoryPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-3xl mx-auto pb-24">
+      {/* Bouton Retour */}
       <Link
         href="/client"
         className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6 transition-colors"
@@ -122,7 +138,6 @@ export default function StudentWorkoutHistoryPage() {
           </p>
         </div>
 
-        {/* Bouton pour relancer la séance directement */}
         {programId && (
           <Link
             href={`/client/workout/${programId}`}
@@ -152,6 +167,7 @@ export default function StudentWorkoutHistoryPage() {
               minute: "2-digit",
             });
 
+            // Détection automatique des exercices stockés dans le log
             const entries = session.workout_log_entries || session.log_data || session.exercises || [];
 
             return (
@@ -161,6 +177,7 @@ export default function StudentWorkoutHistoryPage() {
                   isOpen ? "bg-slate-900 border-amber-400/50" : "bg-slate-900/60 border-slate-800"
                 }`}
               >
+                {/* Entête cliquable */}
                 <button
                   onClick={() => toggleSession(session.id)}
                   className="w-full p-4 sm:p-5 flex items-center justify-between text-left cursor-pointer hover:bg-slate-850 transition-colors"
@@ -196,6 +213,7 @@ export default function StudentWorkoutHistoryPage() {
                   </div>
                 </button>
 
+                {/* Contenu de la session */}
                 {isOpen && (
                   <div className="p-4 sm:p-5 border-t border-slate-800 space-y-4 bg-slate-950/50">
                     <div className="flex justify-between items-center text-xs text-slate-400 sm:hidden pb-2 border-b border-slate-800">
@@ -236,7 +254,7 @@ export default function StudentWorkoutHistoryPage() {
                       </div>
                     ) : (
                       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-400">
-                        Séance enregistrée. Durée totale : <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
+                        Session terminée et enregistrée. Durée totale : <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
                       </div>
                     )}
                   </div>
