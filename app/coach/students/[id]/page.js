@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
-import { ArrowLeft, Loader2, Dumbbell, Calendar, Clock, CheckCircle2, AlertCircle, ChevronRight, History, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Dumbbell, Calendar, Clock, CheckCircle2, AlertCircle, ChevronRight, Check } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
@@ -25,7 +25,6 @@ export default function CoachStudentDetailPage() {
     try {
       setLoading(true);
 
-      // 1. Récupérer le profil de l'élève
       const { data: studentData, error: studentErr } = await supabase
         .from("profiles")
         .select("*")
@@ -35,7 +34,6 @@ export default function CoachStudentDetailPage() {
       if (studentErr) throw studentErr;
       setStudent(studentData);
 
-      // 2. Récupérer l'historique des séances (workout_logs) de l'élève
       const { data: logsData } = await supabase
         .from("workout_logs")
         .select("id, program_id, created_at, duration_seconds, coach_reviewed, programs(title)")
@@ -44,7 +42,6 @@ export default function CoachStudentDetailPage() {
 
       setLogs(logsData || []);
 
-      // 3. Récupérer les programmes de l'élève avec le nombre d'exercices
       const { data: progData } = await supabase
         .from("programs")
         .select("*, exercises(count)")
@@ -58,7 +55,6 @@ export default function CoachStudentDetailPage() {
     }
   };
 
-  // Logique intelligente pour le bloc "Derniers entraînements"
   const unreviewedLogs = logs.filter((l) => !l.coach_reviewed);
   const reviewedLogs = logs.filter((l) => l.coach_reviewed);
   
@@ -68,7 +64,6 @@ export default function CoachStudentDetailPage() {
     displayedLogs = [...displayedLogs, ...reviewedLogs.slice(0, needed)];
   }
 
-  // Set des IDs de programmes qui ont déjà au moins un log validé
   const completedProgramIds = new Set(logs.map(l => l.program_id));
 
   if (loading) {
@@ -81,13 +76,11 @@ export default function CoachStudentDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-4xl mx-auto pb-24">
-      {/* Bouton de retour */}
       <Link href="/coach" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6">
         <ArrowLeft className="w-4 h-4" />
         <span>Retour au tableau de bord</span>
       </Link>
 
-      {/* En-tête du profil de l'élève */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
@@ -112,7 +105,7 @@ export default function CoachStudentDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* COLONNE 1 : Programmes assignés cliquables avec statut visuel */}
+        {/* COLONNE 1 : Programmes assignés entièrement cliquables */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
             <Dumbbell className="w-4 h-4 text-amber-400" />
@@ -140,7 +133,6 @@ export default function CoachStudentDetailPage() {
                         <span className="text-[10px] text-slate-500 font-medium">{prog.exercises?.[0]?.count || 0} exercices</span>
                       </div>
 
-                      {/* Statut visuel avec code couleur et coche */}
                       {isRealised ? (
                         <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
                           <Check className="w-3 h-3" /> Réalisée
@@ -153,8 +145,8 @@ export default function CoachStudentDetailPage() {
                     </div>
 
                     <div className="text-[11px] text-slate-500 group-hover:text-amber-400 font-bold transition-colors pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                      <span>Voir l'historique du programme</span>
-                      <History className="w-3.5 h-3.5" />
+                      <span>Cliquer pour voir l'historique des itérations</span>
+                      <ChevronRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
                     </div>
                   </Link>
                 );
