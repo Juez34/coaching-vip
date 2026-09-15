@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
-  Play, Dumbbell, UserCheck, LogOut, Search, User, Plus, Loader2, Trash2, CheckCircle2 
+  Play, Dumbbell, UserCheck, LogOut, Search, User, Plus, Loader2, Trash2, CheckCircle2, History 
 } from "lucide-react";
 import Link from "next/link";
 
@@ -59,7 +59,6 @@ export default function StudentDashboard() {
     const { data: programData } = await query;
     setPrograms(programData || []);
 
-    // Récupérer les séances validées pour afficher le statut "Terminée"
     const { data: logsData } = await supabase
       .from("workout_logs")
       .select("program_id")
@@ -113,7 +112,7 @@ export default function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-4xl mx-auto pb-28">
-      {/* Header épuré sans le bouton + */}
+      {/* Header */}
       <header className="flex justify-between items-center mb-6 pb-6 border-b border-slate-800">
         <div>
           <span className="text-[11px] font-extrabold tracking-widest text-amber-400 uppercase bg-amber-400/10 px-3 py-1 rounded-full border border-amber-400/20 mb-2 inline-block">
@@ -133,7 +132,7 @@ export default function StudentDashboard() {
         </div>
       </header>
 
-      {/* Liste des cartes de programmes */}
+      {/* Liste des programmes */}
       <div className="space-y-4 mb-8">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Programmes Disponibles</h2>
         
@@ -173,23 +172,28 @@ export default function StudentDashboard() {
                     )}
                   </div>
 
-                  {/* Bouton dynamique selon le statut complété ou non */}
+                  {/* Actions dynamiques */}
                   {isCompleted ? (
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold uppercase text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-md border border-emerald-400/20 block text-center flex items-center justify-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Séance Terminée
-                      </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Link
+                        href={`/client/history/${prog.id}`}
+                        className="py-2.5 bg-slate-950 hover:bg-slate-800 text-emerald-400 border border-emerald-400/30 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                        <span>Historique</span>
+                      </Link>
                       <Link
                         href={`/client/workout/${prog.id}`}
-                        className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 text-amber-400 border border-amber-400/30 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all"
+                        className="py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
                       >
-                        <span>Relancer la séance</span>
+                        <Play className="w-3.5 h-3.5 fill-slate-950" />
+                        <span>Refaire</span>
                       </Link>
                     </div>
                   ) : (
                     <Link
                       href={`/client/workout/${prog.id}`}
-                      className="w-full py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 transition-all"
+                      className="w-full py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
                     >
                       <Play className="w-4 h-4 fill-slate-950" />
                       <span>DÉMARRER LA SÉANCE</span>
@@ -202,7 +206,7 @@ export default function StudentDashboard() {
         )}
       </div>
 
-      {/* BOUTON EN BAS : Créer une séance libre (explicite) */}
+      {/* Bouton de création de séance libre */}
       <div className="pt-4 border-t border-slate-800">
         <Link
           href="/client/create"
