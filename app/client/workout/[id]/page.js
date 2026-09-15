@@ -1,34 +1,38 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
-import { Check, ArrowLeft, Timer, Pause, Play, RotateCcw, Loader2, ChevronRight, MessageSquare, Dumbbell } from "lucide-react";
+import { Check, ArrowLeft, Timer, Pause, Play, Loader2, ChevronRight, MessageSquare, Dumbbell } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
 export default function WorkoutSessionPage() {
+  // Récupération de l'ID du programme depuis l'URL dynamique
   const params = useParams();
   const programId = params?.id;
 
+  // États principaux de la page
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [program, setProgram] = useState(null);
   const [exercises, setExercises] = useState([]);
   
-  // État de la session active
+  // États de l'exécution de la séance (Chrono et mode actif)
   const [isStarted, setIsStarted] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  // Performances et commentaires
+  // États pour stocker les performances, séries validées et commentaires de l'élève
   const [actualPerformances, setActualPerformances] = useState({});
   const [completedSets, setCompletedSets] = useState({});
   const [exerciseComments, setExerciseComments] = useState({});
   const [studentComment, setStudentComment] = useState("");
 
+  // Chargement des données de la séance au montage du composant
   useEffect(() => {
     if (programId) fetchWorkout();
   }, [programId]);
 
+  // Gestion du chronomètre de la séance
   useEffect(() => {
     let interval = null;
     if (isTimerRunning) {
@@ -39,21 +43,27 @@ export default function WorkoutSessionPage() {
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
+  // Fonction utilitaire pour formater le temps en MM:SS
   const formatTime = (sec) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  // Récupération du programme et de ses exercices depuis Supabase
   const fetchWorkout = async () => {
     try {
       setLoading(true);
+      
+      // 1. Charger les infos du programme
       const { data: prog } = await supabase.from("programs").select("*").eq("id", programId).single();
       setProgram(prog);
 
+      // 2. Charger les exercices associés triés par ordre
       const { data: exList } = await supabase.from("exercises").select("*").eq("program_id", programId).order("order_index", { ascending: true });
       setExercises(exList || []);
 
+      // 3. Initialiser les performances par défaut avec les objectifs initiaux du coach
       const initialPerf = {};
       (exList || []).forEach((ex) => {
         for (let i = 0; i < ex.sets; i++) {
@@ -65,23 +75,26 @@ export default function WorkoutSessionPage() {
       });
       setActualPerformances(initialPerf);
     } catch (err) {
-      console.error(err);
+      console.error("Erreur lors du chargement de la séance :", err);
     } finally {
       setLoading(false);
     }
   };
 
+  // Déclenchement du démarrage de la séance et du chrono
   const startWorkout = () => {
     setIsStarted(true);
     setIsTimerRunning(true);
   };
 
+  // Basculer l'état validé/non validé d'une série spécifique
   const toggleSetCheck = (exId, setIdx) => {
-    if (!isStarted) return; // Empêche de valider si la séance n'est pas lancée
+    if (!isStarted) return;
     const key = `${exId}-${setIdx}`;
     setCompletedSets((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // Mettre à jour les répétitions ou le poids réel d'une série
   const handlePerfChange = (exId, setIdx, field, value) => {
     const key = `${exId}-${setIdx}`;
     setActualPerformances((prev) => ({
@@ -93,6 +106,7 @@ export default function WorkoutSessionPage() {
     }));
   };
 
+  // Enregistrer le commentaire de l'élève pour un exercice précis
   const handleExerciseCommentChange = (exId, value) => {
     setExerciseComments((prev) => ({
       ...prev,
@@ -100,6 +114,7 @@ export default function WorkoutSessionPage() {
     }));
   };
 
+  // Sauvegarde finale de la séance dans la table workout_logs
   const handleFinishWorkout = async () => {
     setSaving(true);
     try {
@@ -128,6 +143,7 @@ export default function WorkoutSessionPage() {
     }
   };
 
+  // Affichage d'un loader pendant le chargement initial
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
@@ -138,12 +154,13 @@ export default function WorkoutSessionPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-2xl mx-auto pb-24">
+      {/* Bouton de retour au tableau de bord */}
       <Link href="/client" className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-4">
         <ArrowLeft className="w-4 h-4" />
         <span>Retour aux séances</span>
       </Link>
 
-      {/* En-tête et Résumé de la séance */}
+      {/* En-tête : Résumé de la séance et bouton de démarrage */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4 mb-6">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
@@ -154,6 +171,7 @@ export default function WorkoutSessionPage() {
             {exercises.length} exercice{exercises.length > 1 ? "s" : ""} prévu{exercises.length > 1 ? "s" : ""}
           </p>
 
+          {/* Note globale laissée par le coach */}
           {program?.coach_note && (
             <p className="text-xs text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-800 mt-3">
               💡 <span className="font-bold text-amber-400">Note du coach :</span> {program.coach_note}
@@ -161,7 +179,7 @@ export default function WorkoutSessionPage() {
           )}
         </div>
 
-        {/* Bouton de démarrage ou Chrono actif */}
+        {/* Bouton de démarrage ou affichage du chronomètre actif */}
         {!isStarted ? (
           <button
             onClick={startWorkout}
@@ -183,95 +201,94 @@ export default function WorkoutSessionPage() {
         )}
       </div>
 
-      {/* APERÇU / LISTE DES EXERCICES (Toujours visible, mais interactif uniquement si démarré) */}
-      <div className="space-y-4">
+      {/* Liste compacte des exercices (Aperçu épuré avant démarrage, interactif après) */}
+      <div className="space-y-3">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
           <Dumbbell className="w-4 h-4 text-amber-400" />
-          <span>Programme des exercices</span>
+          <span>Aperçu des exercices ({exercises.length})</span>
         </h2>
 
-        {exercises.map((ex) => (
-          <div key={ex.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-lg">
-            <div>
-              <h3 className="font-bold text-base text-white">{ex.name}</h3>
-              {ex.coach_comment && (
-                <p className="text-[11px] text-amber-300 bg-amber-400/10 p-2 rounded-lg border border-amber-400/20 italic mt-1.5">
-                  💡 Consigne coach : {ex.coach_comment}
-                </p>
-              )}
+        {exercises.map((ex, idx) => (
+          <div key={ex.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2 shadow-sm">
+            {/* Ligne principale compacte de l'exercice */}
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-amber-400">{idx + 1}.</span>
+                <h3 className="font-bold text-sm text-white">{ex.name}</h3>
+              </div>
+              <span className="text-[11px] font-medium text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                {ex.sets} séries • {ex.reps} reps • {ex.target_weight}
+              </span>
             </div>
 
-            <div className="space-y-2">
-              {Array.from({ length: ex.sets }).map((_, setIdx) => {
-                const key = `${ex.id}-${setIdx}`;
-                const isDone = completedSets[key];
-                const perf = actualPerformances[key] || {};
+            {/* Consigne spécifique du coach pour cet exercice */}
+            {ex.coach_comment && (
+              <p className="text-[11px] text-amber-300/90 bg-amber-400/10 px-2.5 py-1.5 rounded-lg border border-amber-400/20 italic">
+                💡 {ex.coach_comment}
+              </p>
+            )}
 
-                return (
-                  <div key={setIdx} className={`p-3 rounded-xl border transition-all ${isDone ? "bg-amber-400/10 border-amber-400/50" : "bg-slate-950 border-slate-800"}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold uppercase text-slate-400">Série {setIdx + 1}</span>
-                      
-                      {/* Le bouton de validation n'est cliquable que si la séance est lancée */}
-                      <button
-                        type="button"
-                        onClick={() => toggleSetCheck(ex.id, setIdx)}
-                        disabled={!isStarted}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
-                          !isStarted 
-                            ? "opacity-50 cursor-not-allowed bg-slate-900 text-slate-500 border-slate-800" 
-                            : isDone 
-                              ? "bg-amber-400 text-slate-950 border-amber-400" 
-                              : "bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500"
-                        }`}
-                      >
-                        <Check className="w-3.5 h-3.5" /> {isDone ? "Validée" : "Valider"}
-                      </button>
-                    </div>
+            {/* Bloc interactif affiché uniquement lorsque la séance est lancée */}
+            {isStarted && (
+              <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                {Array.from({ length: ex.sets }).map((_, setIdx) => {
+                  const key = `${ex.id}-${setIdx}`;
+                  const isDone = completedSets[key];
+                  const perf = actualPerformances[key] || {};
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[9px] uppercase text-slate-400 mb-0.5">Reps (Objectif : {ex.reps})</label>
-                        <input
-                          type="text"
-                          value={perf.reps}
-                          disabled={!isStarted}
-                          onChange={(e) => handlePerfChange(ex.id, setIdx, "reps", e.target.value)}
-                          className={`w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2 text-xs text-white ${!isStarted ? "opacity-60 cursor-not-allowed" : ""}`}
-                          placeholder={ex.reps}
-                        />
+                  return (
+                    <div key={setIdx} className={`p-2.5 rounded-lg border transition-all ${isDone ? "bg-amber-400/10 border-amber-400/50" : "bg-slate-950 border-slate-800"}`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-bold uppercase text-slate-400">Série {setIdx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleSetCheck(ex.id, setIdx)}
+                          className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold flex items-center gap-1 border ${isDone ? "bg-amber-400 text-slate-950 border-amber-400" : "bg-slate-900 text-slate-400 border-slate-700"}`}
+                        >
+                          <Check className="w-3 h-3" /> {isDone ? "Validée" : "Valider"}
+                        </button>
                       </div>
-                      <div>
-                        <label className="block text-[9px] uppercase text-slate-400 mb-0.5">Poids (Objectif : {ex.target_weight})</label>
-                        <input
-                          type="text"
-                          value={perf.weight}
-                          disabled={!isStarted}
-                          onChange={(e) => handlePerfChange(ex.id, setIdx, "weight", e.target.value)}
-                          className={`w-full bg-slate-900 border border-slate-800 rounded-lg py-1.5 px-2 text-xs text-white ${!isStarted ? "opacity-60 cursor-not-allowed" : ""}`}
-                          placeholder={ex.target_weight}
-                        />
+
+                      {/* Champs de saisie des performances réelles */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <input
+                            type="text"
+                            value={perf.reps}
+                            onChange={(e) => handlePerfChange(ex.id, setIdx, "reps", e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-md py-1 px-2 text-xs text-white"
+                            placeholder={`Reps (${ex.reps})`}
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            value={perf.weight}
+                            onChange={(e) => handlePerfChange(ex.id, setIdx, "weight", e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg py-1 px-2 text-xs text-white"
+                            placeholder={`Poids (${ex.target_weight})`}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
 
-            {/* Commentaire par exercice */}
-            <div className="pt-1">
-              <input
-                type="text"
-                placeholder={isStarted ? "Commentaire sur cet exercice..." : "Démarrez la séance pour commenter"}
-                disabled={!isStarted}
-                onChange={(e) => handleExerciseCommentChange(ex.id, e.target.value)}
-                className={`w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-400 ${!isStarted ? "opacity-50 cursor-not-allowed" : ""}`}
-              />
-            </div>
+                {/* Champ de commentaire de l'élève par exercice */}
+                <div className="pt-1">
+                  <input
+                    type="text"
+                    placeholder="Commentaire sur cet exercice (ex: bonnes sensations...)"
+                    onChange={(e) => handleExerciseCommentChange(ex.id, e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-1.5 px-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         ))}
 
-        {/* Section de fin de séance (visible uniquement si démarré) */}
+        {/* Section de fin de séance (apparaît uniquement après le démarrage) */}
         {isStarted && (
           <div className="space-y-4 pt-4">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
