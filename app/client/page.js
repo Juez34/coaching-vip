@@ -70,21 +70,11 @@ export default function StudentDashboard() {
     const logProgramIds = (logsData || []).map(l => String(l.program_id));
     const currentProgIds = (programData || []).map(p => String(p.id));
 
-    // 📱 Alerte de débogage pour voir les IDs sur le téléphone
+    // Alerte de débogage pour voir les IDs sur le téléphone
     alert(`IDs Logs: [${logProgramIds.join(", ")}] \nIDs Programmes: [${currentProgIds.join(", ")}]`);
 
-    // Utilisation de String() pour s'assurer de comparer le même format
     const completedSet = new Set(logProgramIds);
     setCompletedProgramIds(completedSet);
-  };
-    
-    if (logsError) {
-      console.error("Erreur chargement workout_logs :", logsError);
-    } else {
-      console.log("Logs récupérés pour l'utilisateur :", logsData);
-      const completedSet = new Set((logsData || []).map(l => Number(l.program_id)));
-      setCompletedProgramIds(completedSet);
-    }
   };
 
   const fetchFeaturedCoach = async () => {
@@ -120,6 +110,7 @@ export default function StudentDashboard() {
     }
   };
 
+  // Gestion du rendu conditionnel si le chargement est en cours (DANS LE COMPOSANT)
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
@@ -128,6 +119,7 @@ export default function StudentDashboard() {
     );
   }
 
+  // Rendu principal de la page
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-4xl mx-auto pb-28">
       {/* Header */}
@@ -161,8 +153,7 @@ export default function StudentDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {programs.map((prog) => {
-              // Vérification stricte en convertissant en Number pour éviter les problèmes de type (ID en string vs number)
-              const isCompleted = completedProgramIds.has(Number(prog.id));
+              const isCompleted = completedProgramIds.has(String(prog.id));
 
               return (
                 <div key={prog.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 hover:border-amber-400/50 transition-all">
