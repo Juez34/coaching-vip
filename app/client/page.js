@@ -68,9 +68,9 @@ export default function StudentDashboard() {
       .eq("user_id", userId);
 
     const logProgramIds = (logsData || []).map(l => String(l.program_id));
-    const currentProgIds = (programData || []).map(p => String(p.id));
-
-   
+    const completedSet = new Set(logProgramIds);
+    setCompletedProgramIds(completedSet);
+  };
 
   const fetchFeaturedCoach = async () => {
     const { data } = await supabase
@@ -105,7 +105,7 @@ export default function StudentDashboard() {
     }
   };
 
-  // Gestion du rendu conditionnel si le chargement est en cours (DANS LE COMPOSANT)
+  // Gestion du rendu conditionnel si le chargement est en cours
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
