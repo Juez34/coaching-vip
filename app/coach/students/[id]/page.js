@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
-import { ArrowLeft, Loader2, Dumbbell, Calendar, Clock, CheckCircle2, AlertCircle, ChevronRight, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Dumbbell, Calendar, Clock, CheckCircle2, AlertCircle, ChevronRight, Check, Plus } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
@@ -105,12 +105,23 @@ export default function CoachStudentDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* COLONNE 1 : Programmes assignés entièrement cliquables (épurés) */}
+        {/* COLONNE 1 : Programmes assignés avec bouton d'ajout direct */}
         <div className="space-y-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-            <Dumbbell className="w-4 h-4 text-amber-400" />
-            <span>Programmes assignés ({programs.length})</span>
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <Dumbbell className="w-4 h-4 text-amber-400" />
+              <span>Programmes ({programs.length})</span>
+            </h2>
+
+            {/* 🌟 Bouton d'ajout avec ID de l'élève pré-rempli */}
+            <Link
+              href={`/coach/new-program?student=${studentId}`}
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 text-xs transition-colors shadow-md"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Ajouter</span>
+            </Link>
+          </div>
 
           {programs.length === 0 ? (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-slate-400 text-xs">
