@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { Loader2, Users, Calendar, AlertCircle, CheckCircle2, ChevronRight, Dumbbell } from "lucide-react";
+import { Loader2, Users, Calendar, AlertCircle, CheckCircle2, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 export default function CoachDashboardPage() {
@@ -17,17 +17,16 @@ export default function CoachDashboardPage() {
     try {
       setLoading(true);
 
-      // 1. Récupération de la liste des élèves
+      // 1. Récupération de l'ensemble des élèves / profils sans filtre bloquant
       const { data: studentsData, error: studentsErr } = await supabase
         .from("profiles")
         .select("*")
-        .eq("role", "student")
         .order("full_name", { ascending: true });
 
       if (studentsErr) throw studentsErr;
       setStudents(studentsData || []);
 
-      // 2. Récupération des derniers entraînements réalisés par l'ensemble des élèves
+      // 2. Récupération des 6 dernières séances enregistrées
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("id, program_id, user_id, created_at, coach_reviewed, profiles(full_name, email), programs(title)")
