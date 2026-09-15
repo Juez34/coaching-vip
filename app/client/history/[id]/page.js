@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { 
   ArrowLeft, Loader2, Clock, Dumbbell, 
-  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Play 
+  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Play, MessageSquare 
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -33,7 +33,7 @@ export default function StudentWorkoutHistoryPage() {
 
       let targetProgId = rawId;
 
-      // 1. Récupérer le programme
+      // 1. Récupérer le programme ou le log
       const { data: programData } = await supabase
         .from("programs")
         .select("id, title")
@@ -44,7 +44,6 @@ export default function StudentWorkoutHistoryPage() {
         setProgramTitle(programData.title);
         setProgramId(programData.id);
       } else {
-        // Si rawId est un log_id direct
         const { data: singleLog } = await supabase
           .from("workout_logs")
           .select("program_id, programs(id, title)")
@@ -58,29 +57,19 @@ export default function StudentWorkoutHistoryPage() {
         }
       }
 
-      // 2. Charger les sessions (Tentative 1 : avec workout_log_entries)
-      let logsData = null;
-      
-      const { data: dataWithEntries, error: errEntries } = await supabase
+      // 2. Charger toutes les sessions avec workout_log_entries et fallback sur les exercices du programme
+      const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
-        .select("*, workout_log_entries(*)")
+        .select(`
+          *,
+          workout_log_entries (*),
+          programs (*, exercises (*))
+        `)
         .eq("program_id", targetProgId)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (!errEntries && dataWithEntries) {
-        logsData = dataWithEntries;
-      } else {
-        // Tentative 2 : Fallback sans table de liaison (si workout_log_entries n'existe pas)
-        const { data: rawLogs } = await supabase
-          .from("workout_logs")
-          .select("*")
-          .eq("program_id", targetProgId)
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-        
-        logsData = rawLogs;
-      }
+      if (logsErr) throw logsErr;
 
       setSessions(logsData || []);
 
@@ -124,7 +113,7 @@ export default function StudentWorkoutHistoryPage() {
         <span>Retour à mon espace</span>
       </Link>
 
-      {/* En-tête avec bouton de lancement */}
+      {/* En-tête de la séance */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
@@ -167,8 +156,13 @@ export default function StudentWorkoutHistoryPage() {
               minute: "2-digit",
             });
 
-            // Détection automatique des exercices stockés dans le log
-            const entries = session.workout_log_entries || session.log_data || session.exercises || [];
+            // 1. Détection des exercices : priorité aux résultats enregistrés dans workout_log_entries, sinon fallback sur le programme
+            const logEntries = session.workout_log_entries || [];
+            const programExercises = session.programs?.exercises || [];
+            const displayExercises = logEntries.length > 0 ? logEntries : programExercises;
+
+            // 2. Détection du commentaire / note
+            const comment = session.notes || session.comment || session.feedback || null;
 
             return (
               <div
@@ -177,7 +171,7 @@ export default function StudentWorkoutHistoryPage() {
                   isOpen ? "bg-slate-900 border-amber-400/50" : "bg-slate-900/60 border-slate-800"
                 }`}
               >
-                {/* Entête cliquable */}
+                {/* En-tête cliquable */}
                 <button
                   onClick={() => toggleSession(session.id)}
                   className="w-full p-4 sm:p-5 flex items-center justify-between text-left cursor-pointer hover:bg-slate-850 transition-colors"
@@ -221,40 +215,56 @@ export default function StudentWorkoutHistoryPage() {
                       <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
                     </div>
 
+                    {/* Affichage des commentaires / notes de séance */}
+                    {comment && (
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs space-y-1">
+                        <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Commentaire de séance :</span>
+                        </span>
+                        <p className="text-slate-300 italic pl-5">{comment}</p>
+                      </div>
+                    )}
+
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                       <Dumbbell className="w-4 h-4 text-amber-400" />
-                      <span>Détail des exercices</span>
+                      <span>Résultats des exercices</span>
                     </h4>
 
-                    {entries && entries.length > 0 ? (
+                    {displayExercises && displayExercises.length > 0 ? (
                       <div className="space-y-3">
-                        {entries.map((entry, idx) => (
-                          <div
-                            key={entry.id || idx}
-                            className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs"
-                          >
-                            <span className="font-bold text-white">
-                              {entry.exercise_name || entry.name || `Exercice #${idx + 1}`}
-                            </span>
-                            <div className="flex gap-2.5 text-slate-300">
-                              <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                <strong className="text-amber-400">{entry.sets_completed || entry.sets || "-"}</strong> séries
-                              </span>
-                              <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                <strong className="text-amber-400">{entry.reps_completed || entry.reps || "-"}</strong> reps
-                              </span>
-                              {(entry.weight_used || entry.weight) && (
+                        {displayExercises.map((entry, idx) => {
+                          const name = entry.exercise_name || entry.name || `Exercice #${idx + 1}`;
+                          const sets = entry.sets_completed ?? entry.sets ?? "-";
+                          const reps = entry.reps_completed ?? entry.reps ?? "-";
+                          const weight = entry.weight_used ?? entry.weight ?? null;
+
+                          return (
+                            <div
+                              key={entry.id || idx}
+                              className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs"
+                            >
+                              <span className="font-bold text-white">{name}</span>
+                              <div className="flex gap-2.5 text-slate-300">
                                 <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                  <strong className="text-amber-400">{entry.weight_used || entry.weight}</strong> kg
+                                  <strong className="text-amber-400">{sets}</strong> séries
                                 </span>
-                              )}
+                                <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                                  <strong className="text-amber-400">{reps}</strong> reps
+                                </span>
+                                {weight !== null && (
+                                  <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                                    <strong className="text-amber-400">{weight}</strong> kg
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-400">
-                        Session terminée et enregistrée. Durée totale : <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
+                        Session enregistrée. Durée totale : <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
                       </div>
                     )}
                   </div>
