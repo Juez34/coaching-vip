@@ -58,7 +58,7 @@ export default function CoachProgramHistoryPage() {
       const { data: logsData } = await query;
       setLogs(logsData || []);
 
-      // 🌟 Si une seule session réalisée, on la déroule automatiquement. S'il y en a plusieurs, tout est enroulé par défaut.
+      // Si une seule session réalisée, on la déroule automatiquement. S'il y en a plusieurs, tout est enroulé par défaut.
       if (logsData && logsData.length === 1) {
         setOpenLogIds({ [logsData[0].id]: true });
       } else {
@@ -123,7 +123,7 @@ export default function CoachProgramHistoryPage() {
         </Link>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 space-y-3">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 space-y-4">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/25">
             Historique des itérations
@@ -136,6 +136,7 @@ export default function CoachProgramHistoryPage() {
           )}
         </div>
 
+        {/* Résumé de l'historique global */}
         {totalSessions > 0 && (
           <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800 text-[11px]">
             <span className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-300 flex items-center gap-1.5">
@@ -149,6 +150,22 @@ export default function CoachProgramHistoryPage() {
             <span className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-300 flex items-center gap-1.5">
               ⏱️ Moy. : <strong className="text-amber-400">{avgDuration} min</strong>
             </span>
+          </div>
+        )}
+
+        {/* 🌟 Résumé unique de la séance affiché au-dessus des accordéons */}
+        {exercisesList.length > 0 && (
+          <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <Dumbbell className="w-3.5 h-3.5" /> Structure du programme ({exercisesList.length} exercices)
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {exercisesList.map((ex) => (
+                <span key={ex.id} className="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg text-xs text-slate-200">
+                  {ex.name} <strong className="text-amber-400">({ex.sets}s</strong>{ex.reps ? <span className="text-slate-400"> • {ex.reps}r</span> : null})
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -169,38 +186,20 @@ export default function CoachProgramHistoryPage() {
               <div key={log.id || index} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg transition-all">
                 <button
                   onClick={() => toggleAccordion(log.id)}
-                  className="w-full p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-900 hover:bg-slate-850 transition-colors text-left cursor-pointer gap-3"
+                  className="w-full p-4 flex justify-between items-center bg-slate-900 hover:bg-slate-850 transition-colors text-left cursor-pointer gap-3"
                 >
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold bg-emerald-400/10 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-400/20 text-xs flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {log.created_at ? new Date(log.created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Date inconnue"}
-                      </span>
-                      <span className="font-mono text-xs text-slate-300 bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-amber-400" />
-                        {Math.floor((log.duration_seconds || 0) / 60)} min
-                      </span>
-                    </div>
-
-                    {/* 🌟 Résumé visible uniquement si la session est enroulée pour donner une visu rapide */}
-                    {!isOpen && (
-                      <div className="text-xs text-slate-300 space-y-1 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block mb-1">
-                          Résumé de la séance ({exercisesList.length} exercices) :
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {exercisesList.map((ex) => (
-                            <span key={ex.id} className="bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-[11px] text-slate-200">
-                              {ex.name} <strong className="text-amber-400">({ex.sets}s</strong>{ex.reps ? <span className="text-slate-400"> • {ex.reps}r</span> : null})
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="font-bold bg-emerald-400/10 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-400/20 text-xs flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {log.created_at ? new Date(log.created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Date inconnue"}
+                    </span>
+                    <span className="font-mono text-xs text-slate-300 bg-slate-950 px-2 py-1 rounded-md border border-slate-800 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-amber-400" />
+                      {Math.floor((log.duration_seconds || 0) / 60)} min
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-800">
+                  <div className="flex items-center gap-3">
                     {log.coach_reviewed ? (
                       <span className="text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" /> Lue
