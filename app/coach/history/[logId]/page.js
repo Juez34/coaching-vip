@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
-import { ArrowLeft, Loader2, Dumbbell, MessageSquare, Calendar, Clock, Check, X, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, Dumbbell, MessageSquare, Calendar, Clock, Check, X, CheckCircle2, Home } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
@@ -27,7 +27,6 @@ export default function CoachWorkoutDetailView() {
     try {
       setLoading(true);
 
-      // 1. Récupérer le log d'entraînement spécifique
       const { data: logData, error: logErr } = await supabase
         .from("workout_logs")
         .select("*")
@@ -37,7 +36,6 @@ export default function CoachWorkoutDetailView() {
       if (logErr) throw logErr;
       setLog(logData);
 
-      // 2. Récupérer le programme associé
       if (logData?.program_id) {
         const { data: progData } = await supabase
           .from("programs")
@@ -46,7 +44,6 @@ export default function CoachWorkoutDetailView() {
           .maybeSingle();
         setProgram(progData);
 
-        // 3. Récupérer la liste des exercices du programme
         const { data: exData } = await supabase
           .from("exercises")
           .select("id, name, sets, order_index")
@@ -55,7 +52,6 @@ export default function CoachWorkoutDetailView() {
         setExercisesList(exData || []);
       }
 
-      // 4. Récupérer le profil de l'élève
       if (logData?.user_id) {
         const { data: profileData } = await supabase
           .from("profiles")
@@ -71,11 +67,11 @@ export default function CoachWorkoutDetailView() {
     }
   };
 
-  // Fonction pour valider la lecture par le coach
   const handleToggleReview = async () => {
     try {
       setUpdating(true);
-      const newStatus = !log.coach_reviewed;
+      // On force la validation à true lorsqu'on clique sur valider
+      const newStatus = true;
 
       const { error } = await supabase
         .from("workout_logs")
@@ -84,11 +80,14 @@ export default function CoachWorkoutDetailView() {
 
       if (error) throw error;
 
-      setLog({ ...log, coach_reviewed: newStatus });
-      alert(newStatus ? "Séance marquée comme lue ! ✅" : "Séance marquée comme non lue.");
+      // Redirection immédiate vers la page de l'élève concerné
+      if (log?.user_id) {
+        router.push(`/coach/students/${log.user_id}`);
+      } else {
+        router.back();
+      }
     } catch (err) {
       alert("Erreur lors de la mise à jour : " + err.message);
-    } finally {
       setUpdating(false);
     }
   };
@@ -103,16 +102,24 @@ export default function CoachWorkoutDetailView() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-2xl mx-auto pb-24">
-      {/* Bouton de retour vers l'espace coach */}
-      <button 
-        onClick={() => router.back()} 
-        className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6 cursor-pointer"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Retour aux élèves</span>
-      </button>
+      <div className="flex justify-between items-center mb-6">
+        <button 
+          onClick={() => router.back()} 
+          className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Retour</span>
+        </button>
 
-      {/* En-tête de la séance de l'élève */}
+        <Link 
+          href="/coach"
+          className="inline-flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-amber-400 px-3 py-1.5 rounded-xl border border-slate-800 transition-colors"
+        >
+          <Home className="w-3.5 h-3.5" />
+          <span>Accueil Gestion Élèves</span>
+        </Link>
+      </div>
+
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 space-y-4">
         <div className="flex justify-between items-start">
           <div>
@@ -125,18 +132,17 @@ export default function CoachWorkoutDetailView() {
             </p>
           </div>
 
-          {/* Bouton de validation de lecture pour le coach */}
           <button
             onClick={handleToggleReview}
             disabled={updating}
             className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-md ${
               log?.coach_reviewed 
                 ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30" 
-                : "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
+                : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 border border-emerald-400"
             }`}
           >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>{log?.coach_reviewed ? "Séance validée (Lue)" : "Valider la lecture"}</span>
+            {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+            <span>{log?.coach_reviewed ? "Séance déjà lue" : "Valider la lecture"}</span>
           </button>
         </div>
 
@@ -152,7 +158,6 @@ export default function CoachWorkoutDetailView() {
         </div>
       </div>
 
-      {/* Détail des performances de l'élève */}
       <div className="space-y-6">
         <div className="space-y-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -224,7 +229,6 @@ export default function CoachWorkoutDetailView() {
           </div>
         </div>
 
-        {/* Commentaire global de la séance */}
         {log?.student_comment && (
           <div className="bg-amber-400/10 p-4 rounded-2xl border border-amber-400/25 space-y-1.5 shadow-lg">
             <span className="font-bold text-amber-400 uppercase text-xs flex items-center gap-1.5">
