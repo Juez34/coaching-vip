@@ -3,10 +3,9 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { Check, ArrowLeft, Timer, Pause, Play, RotateCcw, Loader2, ChevronRight, MessageSquare } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
 export default function WorkoutSessionPage() {
-  const router = useRouter();
   const params = useParams();
   const programId = params?.id;
 
@@ -20,9 +19,10 @@ export default function WorkoutSessionPage() {
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  // Performances réelles saisies par l'élève : { [exerciseId_setIndex]: { reps, weight } }
+  // Performances et commentaires
   const [actualPerformances, setActualPerformances] = useState({});
   const [completedSets, setCompletedSets] = useState({});
+  const [exerciseComments, setExerciseComments] = useState({});
   const [studentComment, setStudentComment] = useState("");
 
   useEffect(() => {
@@ -54,7 +54,6 @@ export default function WorkoutSessionPage() {
       const { data: exList } = await supabase.from("exercises").select("*").eq("program_id", programId).order("order_index", { ascending: true });
       setExercises(exList || []);
 
-      // Initialiser les valeurs par défaut avec les objectifs initiaux
       const initialPerf = {};
       (exList || []).forEach((ex) => {
         for (let i = 0; i < ex.sets; i++) {
@@ -93,36 +92,36 @@ export default function WorkoutSessionPage() {
     }));
   };
 
+  const handleExerciseCommentChange = (exId, value) => {
+    setExerciseComments((prev) => ({
+      ...prev,
+      [exId]: value
+    }));
+  };
+
   const handleFinishWorkout = async () => {
     setSaving(true);
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        throw new Error("Vous devez être connecté pour valider votre séance.");
-      }
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (!programId) {
-        throw new Error("Identifiant de programme invalide.");
-      }
-
-      const payload = {
-        program_id: programId,
-        user_id: user.id,
-        duration_seconds: Math.max(0, parseInt(timerSeconds) || 0),
-        completed_sets: completedSets || {},
-        actual_performances: actualPerformances || {},
-        student_comment: studentComment ? studentComment.trim() : null,
-        status: "completed"
-      };
-
-      const { error } = await supabase.from("workout_logs").insert([payload]);
+      const { error } = await supabase.from("workout_logs").insert([
+        {
+          program_id: programId,
+          user_id: user.id,
+          duration_seconds: timerSeconds,
+          completed_sets: completedSets,
+          actual_performances: actualPerformances,
+          exercise_comments: exerciseComments,
+          student_comment: studentComment,
+          status: "completed"
+        }
+      ]);
 
       if (error) throw error;
       alert("Séance enregistrée avec succès ! 💪");
-      router.push("/client");
+      window.location.href = "/client";
     } catch (err) {
-      console.error("Erreur enregistrement séance:", err);
-      alert("Erreur lors de l'enregistrement : " + (err.message || "Une erreur est survenue"));
+      alert("Erreur lors de l'enregistrement : " + err.message);
     } finally {
       setSaving(false);
     }
@@ -179,12 +178,20 @@ export default function WorkoutSessionPage() {
         )}
       </div>
 
-      {/* LISTE DES EXERCICES (Modifiable si démarré) */}
+      {/* LISTE DES EXERCICES */}
       {isStarted && (
         <div className="space-y-4">
           {exercises.map((ex) => (
             <div key={ex.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-              <h3 className="font-bold text-base text-white">{ex.name}</h3>
+              <div>
+                <h3 className="font-bold text-base text-white">{ex.name}</h3>
+                {/* Consigne du coach par exercice */}
+                {ex.coach_comment && (
+                  <p className="text-[11px] text-amber-300 bg-amber-400/10 p-2 rounded-lg border border-amber-400/20 italic mt-1.5">
+                    💡 Consigne coach : {ex.coach_comment}
+                  </p>
+                )}
+              </div>
               
               <div className="space-y-2">
                 {Array.from({ length: ex.sets }).map((_, setIdx) => {
@@ -204,7 +211,6 @@ export default function WorkoutSessionPage() {
                         </button>
                       </div>
 
-                      {/* Inputs modifiables pour poids et reps réels */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="block text-[9px] uppercase text-slate-400 mb-0.5">Reps réalisées</label>
@@ -231,20 +237,30 @@ export default function WorkoutSessionPage() {
                   );
                 })}
               </div>
+
+              {/* Commentaire de l'élève spécifique à cet exercice */}
+              <div className="pt-1">
+                <input
+                  type="text"
+                  placeholder="Commentaire sur cet exercice (ex: bonnes sensations...)"
+                  onChange={(e) => handleExerciseCommentChange(ex.id, e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
             </div>
           ))}
 
-          {/* Commentaire de fin de séance */}
+          {/* Commentaire global de fin de séance */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
             <label className="block text-xs font-bold uppercase text-slate-400 flex items-center gap-1.5">
               <MessageSquare className="w-4 h-4 text-amber-400" />
-              <span>Commentaire pour le coach</span>
+              <span>Commentaire global pour le coach</span>
             </label>
             <textarea
               rows={2}
               value={studentComment}
               onChange={(e) => setStudentComment(e.target.value)}
-              placeholder="Ex: Super séance, un peu dur sur la fin du développé couché..."
+              placeholder="Ex: Super séance, un peu de fatigue sur la fin..."
               className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white resize-none focus:outline-none focus:border-amber-400"
             />
           </div>
