@@ -96,15 +96,13 @@ function NewProgramForm() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      // 1. Création du programme avec alignement complet sur le schéma SQL
+      // 1. Insertion dans 'programs' (avec uniquement les colonnes existantes dans le schéma)
       const { data: program, error: progErr } = await supabase
         .from("programs")
         .insert({
           title: title.trim(),
           student_id: selectedStudentId,
-          client_id: selectedStudentId,    // Complété d'après la table
-          coach_id: user.id,
-          coach_user_id: user.id          // Complété d'après la table
+          coach_id: user.id
         })
         .select("id")
         .single();
@@ -125,7 +123,7 @@ function NewProgramForm() {
         order_index: index
       }));
 
-      // 3. Insertion des exercices
+      // 3. Insertion des exercices dans 'exercises'
       const { error: exoErr } = await supabase
         .from("exercises")
         .insert(exercisesToInsert);
