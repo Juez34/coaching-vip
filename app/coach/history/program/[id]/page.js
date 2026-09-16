@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../../../../lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { 
   ArrowLeft, Loader2, Clock, Dumbbell, 
   ChevronDown, ChevronUp, CheckCircle2, AlertCircle, MessageSquare, Check 
@@ -29,7 +29,6 @@ export default function CoachProgramHistoryPage() {
     try {
       setLoading(true);
 
-      // 1. Charger les infos du programme et le nom de l'élève
       const { data: programData } = await supabase
         .from("programs")
         .select("title, profiles!programs_student_id_fkey(full_name)")
@@ -41,7 +40,6 @@ export default function CoachProgramHistoryPage() {
         setStudentName(programData.profiles?.full_name || "Élève");
       }
 
-      // 2. Récupérer toutes les sessions enregistrées pour ce programme
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("*")
@@ -62,7 +60,6 @@ export default function CoachProgramHistoryPage() {
     }
   };
 
-  // Action pour valider/marquer la séance comme revue par le coach
   const handleMarkAsReviewed = async (e, logId) => {
     e.stopPropagation();
     try {
@@ -107,7 +104,6 @@ export default function CoachProgramHistoryPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-3xl mx-auto pb-24">
-      {/* Bouton Retour */}
       <button
         onClick={() => router.back()}
         className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6 transition-colors cursor-pointer"
@@ -116,7 +112,6 @@ export default function CoachProgramHistoryPage() {
         <span>Retour au dossier élève</span>
       </button>
 
-      {/* En-tête */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8">
         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
           Suivi de séance • {studentName}
@@ -151,13 +146,13 @@ export default function CoachProgramHistoryPage() {
               minute: "2-digit",
             });
 
-            // Parse sécurisé de actual_performances (JSON)
-            let performances = [];
-            if (session.actual_performances) {
-              performances = typeof session.actual_performances === "string" 
-                ? JSON.parse(session.actual_performances) 
-                : session.actual_performances;
+            let rawPerf = session.actual_performances;
+            if (typeof rawPerf === "string") {
+              try { rawPerf = JSON.parse(rawPerf); } catch (e) {}
             }
+
+            // Normalisation pour gérer les tableaux d'exercices
+            let performancesList = Array.isArray(rawPerf) ? rawPerf : [];
 
             return (
               <div
@@ -166,7 +161,6 @@ export default function CoachProgramHistoryPage() {
                   isOpen ? "bg-slate-900 border-amber-400/50" : "bg-slate-900/60 border-slate-800"
                 }`}
               >
-                {/* Entête accordéon */}
                 <div
                   onClick={() => toggleSession(session.id)}
                   className="w-full p-4 sm:p-5 flex items-center justify-between text-left cursor-pointer hover:bg-slate-850 transition-colors"
@@ -222,7 +216,6 @@ export default function CoachProgramHistoryPage() {
                   </div>
                 </div>
 
-                {/* Contenu dépliable */}
                 {isOpen && (
                   <div className="p-4 sm:p-5 border-t border-slate-800 space-y-4 bg-slate-950/50">
                     <div className="flex justify-between items-center text-xs text-slate-400 sm:hidden pb-2 border-b border-slate-800">
@@ -234,7 +227,7 @@ export default function CoachProgramHistoryPage() {
                       <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs space-y-1">
                         <span className="font-bold text-amber-400 flex items-center gap-1.5">
                           <MessageSquare className="w-3.5 h-3.5" />
-                          <span>Remarque de l'élève :</span>
+                          <span>Remarque globale de l'élève :</span>
                         </span>
                         <p className="text-slate-300 italic pl-5">{session.student_comment}</p>
                       </div>
@@ -245,45 +238,40 @@ export default function CoachProgramHistoryPage() {
                       <span>Performances réelles enregistrées</span>
                     </h4>
 
-                    {Array.isArray(performances) && performances.length > 0 ? (
+                    {performancesList.length > 0 ? (
                       <div className="space-y-3">
-                        {performances.map((perf, idx) => {
-                          const name = perf.name || perf.exercise_name || perf.title || `Exercice #${idx + 1}`;
-                          
-                          let setsDisplay = "-";
-                          let repsDisplay = "-";
-                          let weightDisplay = perf.weight_used ?? perf.weight ?? perf.target_weight ?? null;
-
-                          if (Array.isArray(perf.sets)) {
-                            setsDisplay = perf.sets.length;
-                            const repsList = perf.sets.map((s) => s.reps || s.reps_completed).filter(Boolean);
-                            if (repsList.length > 0) repsDisplay = repsList.join(" / ");
-                          } else {
-                            setsDisplay = perf.sets_completed ?? perf.sets ?? perf.completed_sets ?? "-";
-                            repsDisplay = perf.reps_completed ?? perf.reps ?? perf.completed_reps ?? "-";
-                          }
+                        {performancesList.map((exo, idx) => {
+                          const exoName = exo.name || `Exercice #${idx + 1}`;
+                          const setsArr = Array.isArray(exo.sets) ? exo.sets : [];
 
                           return (
-                            <div
-                              key={idx}
-                              className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs"
-                            >
-                              <span className="font-bold text-white text-sm sm:text-xs">{name}</span>
-
-                              <div className="flex flex-wrap gap-2 text-slate-300">
-                                <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                  <strong className="text-amber-400">{setsDisplay}</strong> {typeof setsDisplay === "number" && setsDisplay > 1 ? "séries" : "série"}
-                                </span>
-
-                                <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                  <strong className="text-amber-400">{repsDisplay}</strong> reps
-                                </span>
-
-                                {weightDisplay !== null && weightDisplay !== "" && (
-                                  <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                    <strong className="text-amber-400">{weightDisplay}</strong> kg
+                            <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="font-bold text-white text-xs">{exoName}</span>
+                                {exo.comment && (
+                                  <span className="text-[11px] text-amber-300 italic">
+                                    "{exo.comment}"
                                   </span>
                                 )}
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                {setsArr.map((set, setIdx) => (
+                                  <div
+                                    key={setIdx}
+                                    className={`px-3 py-1.5 rounded-lg border flex justify-between items-center text-xs ${
+                                      set.completed ? "bg-slate-950 border-emerald-500/30" : "bg-slate-950/50 border-slate-800"
+                                    }`}
+                                  >
+                                    <span className="text-slate-400 font-medium">Série {setIdx + 1}</span>
+                                    <div className="flex gap-2">
+                                      <span className="text-amber-400 font-bold">{set.reps} reps</span>
+                                      {set.weight && (
+                                        <span className="text-slate-300">({set.weight} kg)</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           );
@@ -291,7 +279,7 @@ export default function CoachProgramHistoryPage() {
                       </div>
                     ) : (
                       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-400">
-                        Session enregistrée. Aucune donnée détaillée d'exercice.
+                        Session enregistrée sans détail d'exercice.
                       </div>
                     )}
 
