@@ -3,65 +3,49 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { 
   ArrowLeft, Loader2, Clock, Dumbbell, 
-  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Play 
+  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Play, MessageSquare 
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-export default function StudentWorkoutHistoryPage() {
+export default function StudentWorkoutDetailPage() {
   const params = useParams();
-  const rawId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
+  const programId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
 
   const [loading, setLoading] = useState(true);
   const [programTitle, setProgramTitle] = useState("");
-  const [programId, setProgramId] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [openSessionId, setOpenSessionId] = useState(null);
 
   useEffect(() => {
-    if (rawId) {
-      fetchWorkoutHistory();
+    if (programId) {
+      fetchWorkoutDetails();
     }
-  }, [rawId]);
+  }, [programId]);
 
-  const fetchWorkoutHistory = async () => {
+  const fetchWorkoutDetails = async () => {
     try {
       setLoading(true);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      let targetProgId = rawId;
-
-      // 1. Récupérer l'ID et le titre du programme
+      // 1. Récupérer le nom du programme
       const { data: programData } = await supabase
         .from("programs")
-        .select("id, title")
-        .eq("id", rawId)
+        .select("title")
+        .eq("id", programId)
         .maybeSingle();
 
       if (programData) {
         setProgramTitle(programData.title);
-        setProgramId(programData.id);
-      } else {
-        const { data: singleLog } = await supabase
-          .from("workout_logs")
-          .select("program_id, programs(id, title)")
-          .eq("id", rawId)
-          .maybeSingle();
-
-        if (singleLog?.programs) {
-          setProgramTitle(singleLog.programs.title);
-          setProgramId(singleLog.programs.id);
-          targetProgId = singleLog.programs.id;
-        }
       }
 
-      // 2. Récupérer toutes les sessions de cet élève avec leurs enregistrements
+      // 2. Récupérer toutes les sessions (workout_logs) réalisées par l'élève pour cette séance avec leurs résultats
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("*, workout_log_entries(*)")
-        .eq("program_id", targetProgId)
+        .eq("program_id", programId)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -69,11 +53,12 @@ export default function StudentWorkoutHistoryPage() {
 
       setSessions(logsData || []);
 
+      // Ouvrir automatiquement la session la plus récente
       if (logsData && logsData.length > 0) {
         setOpenSessionId(logsData[0].id);
       }
     } catch (err) {
-      console.error("Erreur lors du chargement de l'historique :", err);
+      console.error("Erreur de chargement des sessions :", err);
     } finally {
       setLoading(false);
     }
@@ -100,20 +85,19 @@ export default function StudentWorkoutHistoryPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-3xl mx-auto pb-24">
-      {/* Bouton Retour */}
       <Link
         href="/client"
         className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span>Retour à mon espace</span>
+        <span>Retour à mes séances</span>
       </Link>
 
-      {/* En-tête */}
+      {/* En-tête avec action de relance */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
-            Historique des entraînements
+            Détail de la séance
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-white mt-2">
             {programTitle || "Séance d'entraînement"}
@@ -123,21 +107,24 @@ export default function StudentWorkoutHistoryPage() {
           </p>
         </div>
 
-        {programId && (
-          <Link
-            href={`/client/workout/${programId}`}
-            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all w-full sm:w-auto justify-center"
-          >
-            <Play className="w-4 h-4 fill-slate-950" />
-            <span>Refaire cette séance</span>
-          </Link>
-        )}
+        <Link
+          href={`/client/workout/${programId}`}
+          className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-5 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all w-full sm:w-auto justify-center"
+        >
+          <Play className="w-4 h-4 fill-slate-950" />
+          <span>Lancer l'entraînement</span>
+        </Link>
       </div>
 
-      {/* Accordéon des sessions */}
+      {/* Accordéon des sessions réalisées */}
+      <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+        <Clock className="w-4 h-4 text-amber-400" />
+        <span>Historique des sessions</span>
+      </h2>
+
       {sessions.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">
-          Aucune session enregistrée pour cette séance.
+          Tu n'as pas encore réalisé cette séance. Clique sur "Lancer l'entraînement" pour démarrer ta première session.
         </div>
       ) : (
         <div className="space-y-4">
@@ -161,7 +148,7 @@ export default function StudentWorkoutHistoryPage() {
                   isOpen ? "bg-slate-900 border-amber-400/50" : "bg-slate-900/60 border-slate-800"
                 }`}
               >
-                {/* Entête cliquable */}
+                {/* Entête accordéon */}
                 <button
                   onClick={() => toggleSession(session.id)}
                   className="w-full p-4 sm:p-5 flex items-center justify-between text-left cursor-pointer hover:bg-slate-850 transition-colors"
@@ -197,7 +184,7 @@ export default function StudentWorkoutHistoryPage() {
                   </div>
                 </button>
 
-                {/* Contenu de la session */}
+                {/* Contenu dépliable */}
                 {isOpen && (
                   <div className="p-4 sm:p-5 border-t border-slate-800 space-y-4 bg-slate-950/50">
                     <div className="flex justify-between items-center text-xs text-slate-400 sm:hidden pb-2 border-b border-slate-800">
@@ -205,9 +192,19 @@ export default function StudentWorkoutHistoryPage() {
                       <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
                     </div>
 
+                    {session.notes && (
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs space-y-1">
+                        <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Note de séance :</span>
+                        </span>
+                        <p className="text-slate-300 italic pl-5">{session.notes}</p>
+                      </div>
+                    )}
+
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                       <Dumbbell className="w-4 h-4 text-amber-400" />
-                      <span>Détail des exercices</span>
+                      <span>Résultats enregistrés</span>
                     </h4>
 
                     {entries && entries.length > 0 ? (
