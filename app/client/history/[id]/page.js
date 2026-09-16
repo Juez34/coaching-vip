@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../lib/supabase";
 import { 
   ArrowLeft, Loader2, Clock, Dumbbell, 
-  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, MessageSquare 
+  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, MessageSquare, Play 
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -28,7 +28,6 @@ export default function ClientProgramHistoryPage() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      // 1. Charger les infos du programme
       const { data: programData } = await supabase
         .from("programs")
         .select("title")
@@ -39,7 +38,6 @@ export default function ClientProgramHistoryPage() {
         setProgramTitle(programData.title);
       }
 
-      // 2. Récupérer toutes les sessions de ce programme pour l'élève connecté
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("*")
@@ -91,17 +89,28 @@ export default function ClientProgramHistoryPage() {
         <span>Retour au tableau de bord</span>
       </Link>
 
-      {/* En-tête */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
-          Historique d'entraînement
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-white mt-2">
-          {programTitle || "Séance d'entraînement"}
-        </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          {sessions.length} session{sessions.length > 1 ? "s" : ""} effectuée{sessions.length > 1 ? "s" : ""}.
-        </p>
+      {/* En-tête avec bouton pour Refaire la séance */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+            Historique d'entraînement
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-black text-white mt-2">
+            {programTitle || "Séance d'entraînement"}
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            {sessions.length} session{sessions.length > 1 ? "s" : ""} effectuée{sessions.length > 1 ? "s" : ""}.
+          </p>
+        </div>
+
+        {/* Bouton pour relancer un entraînement */}
+        <Link
+          href={`/client/workout/${programId}`}
+          className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-4 py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md w-full sm:w-auto"
+        >
+          <Play className="w-4 h-4 fill-slate-950" />
+          <span>REFAIRE CETTE SÉANCE</span>
+        </Link>
       </div>
 
       <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
@@ -140,7 +149,6 @@ export default function ClientProgramHistoryPage() {
                   isOpen ? "bg-slate-900 border-amber-400/50" : "bg-slate-900/60 border-slate-800"
                 }`}
               >
-                {/* Entête accordéon */}
                 <div
                   onClick={() => toggleSession(session.id)}
                   className="w-full p-4 sm:p-5 flex items-center justify-between text-left cursor-pointer hover:bg-slate-850 transition-colors"
@@ -178,7 +186,6 @@ export default function ClientProgramHistoryPage() {
                   </div>
                 </div>
 
-                {/* Contenu dépliable */}
                 {isOpen && (
                   <div className="p-4 sm:p-5 border-t border-slate-800 space-y-4 bg-slate-950/50">
                     {session.student_comment && (
