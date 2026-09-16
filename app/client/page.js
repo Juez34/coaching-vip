@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
-  Loader2, Dumbbell, Clock, LogOut, User, Check, ChevronRight 
+  Loader2, Dumbbell, Clock, LogOut, User, Check 
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -157,9 +157,9 @@ export default function StudentDashboardPage() {
                     )}
                   </div>
 
-                  {/* Résumé succinct des exercices dans la carte */}
+                  {/* Aperçu des exercices dans la carte */}
                   {exercisesList.length > 0 && (
-                    <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 mb-3 space-y-1.5">
+                    <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-1.5">
                       <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider block mb-1">
                         Aperçu des exercices :
                       </span>
@@ -178,11 +178,6 @@ export default function StudentDashboardPage() {
                       </div>
                     </div>
                   )}
-
-                  <div className="flex justify-end items-center text-xs font-bold text-amber-400 group-hover:translate-x-1 transition-transform">
-                    <span>Ouvrir la séance</span>
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </div>
                 </Link>
               );
             })}
