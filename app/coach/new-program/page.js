@@ -96,41 +96,47 @@ function NewProgramForm() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      // 1. Création du programme
+      // 1. Création du programme dans la table 'programs'
       const { data: program, error: progErr } = await supabase
         .from("programs")
-        .select("id")
         .insert({
           title: title.trim(),
           student_id: selectedStudentId,
           coach_id: user.id
         })
-        .select()
+        .select("id")
         .single();
 
-      if (progErr) throw progErr;
+      if (progErr) {
+        console.error("Erreur création programme:", progErr);
+        throw new Error(`Erreur lors de la création du programme : ${progErr.message}`);
+      }
 
-      // 2. Création des exercices avec consignes/commentaires
+      // 2. Préparation sécurisée des exercices
       const exercisesToInsert = exercises.map((exo, index) => ({
         program_id: program.id,
         name: exo.name.trim() || `Exercice #${index + 1}`,
-        sets: exo.sets ? parseInt(exo.sets) : 3,
-        reps: exo.reps || "10",
-        target_weight: exo.target_weight ? parseFloat(exo.target_weight) : null,
+        sets: exo.sets ? String(exo.sets) : "3",
+        reps: exo.reps ? String(exo.reps) : "10",
+        target_weight: exo.target_weight ? String(exo.target_weight) : null,
         coach_comment: exo.coach_comment ? exo.coach_comment.trim() : null,
         order_index: index
       }));
 
+      // 3. Insertion dans la table 'exercises'
       const { error: exoErr } = await supabase
         .from("exercises")
         .insert(exercisesToInsert);
 
-      if (exoErr) throw exoErr;
+      if (exoErr) {
+        console.error("Erreur création exercices:", exoErr);
+        throw new Error(`Erreur lors de l'ajout des exercices : ${exoErr.message}`);
+      }
 
       router.push(`/coach/students/${selectedStudentId}`);
     } catch (err) {
-      console.error("Erreur lors de la création de la séance :", err);
-      alert("Erreur lors de la création de la séance.");
+      console.error("Détails de l'erreur :", err);
+      alert(err.message || "Erreur lors de la création de la séance.");
     } finally {
       setLoading(false);
     }
@@ -162,7 +168,6 @@ function NewProgramForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Titre et Élève */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
@@ -187,7 +192,7 @@ function NewProgramForm() {
             </label>
             <input
               type="text"
-              placeholder="Ex: Séance Pecs / Triceps - Prise de masse"
+              placeholder="Ex: Séance Pecs / Triceps"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
@@ -196,7 +201,6 @@ function NewProgramForm() {
           </div>
         </div>
 
-        {/* Exercices */}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -254,7 +258,7 @@ function NewProgramForm() {
                     Séries
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     placeholder="3"
                     value={exo.sets}
                     onChange={(e) => handleExerciseChange(index, "sets", e.target.value)}
@@ -280,8 +284,7 @@ function NewProgramForm() {
                     Poids cible (kg) - Optionnel
                   </label>
                   <input
-                    type="number"
-                    step="0.5"
+                    type="text"
                     placeholder="Ex: 60"
                     value={exo.target_weight}
                     onChange={(e) => handleExerciseChange(index, "target_weight", e.target.value)}
@@ -289,7 +292,6 @@ function NewProgramForm() {
                   />
                 </div>
 
-                {/* Nouveau champ : Consignes & Commentaires coach */}
                 <div className="sm:col-span-2">
                   <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1 flex items-center gap-1">
                     <MessageSquare className="w-3 h-3 text-amber-400" />
@@ -297,7 +299,7 @@ function NewProgramForm() {
                   </label>
                   <textarea
                     rows={2}
-                    placeholder="Ex: Tempo 3-0-1, bien contrôler la descente et garder les coudes rentrés."
+                    placeholder="Ex: Tempo 3-0-1, bien contrôler la descente."
                     value={exo.coach_comment}
                     onChange={(e) => handleExerciseChange(index, "coach_comment", e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-400 resize-none"
