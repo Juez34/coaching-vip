@@ -1,15 +1,15 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { supabase } from "../../../../../lib/supabase";
+import { supabase } from "../="../../../../lib/supabase";
 import { 
   ArrowLeft, Loader2, Clock, Dumbbell, 
   ChevronDown, ChevronUp, CheckCircle2, AlertCircle, MessageSquare, Check 
 } from "lucide-react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 export default function CoachProgramHistoryPage() {
   const params = useParams();
+  const router = useRouter();
   const programId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
 
   const [loading, setLoading] = useState(true);
@@ -29,7 +29,7 @@ export default function CoachProgramHistoryPage() {
     try {
       setLoading(true);
 
-      // 1. Charger les infos du programme
+      // 1. Charger les infos du programme et le nom de l'élève
       const { data: programData } = await supabase
         .from("programs")
         .select("title, profiles!programs_student_id_fkey(full_name)")
@@ -41,7 +41,7 @@ export default function CoachProgramHistoryPage() {
         setStudentName(programData.profiles?.full_name || "Élève");
       }
 
-      // 2. Récupérer toutes les sessions réalisées pour ce programme
+      // 2. Récupérer toutes les sessions enregistrées pour ce programme
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("*")
@@ -64,7 +64,7 @@ export default function CoachProgramHistoryPage() {
 
   // Action pour valider/marquer la séance comme revue par le coach
   const handleMarkAsReviewed = async (e, logId) => {
-    e.stopPropagation(); // Évite de fermer l'accordéon au clic
+    e.stopPropagation();
     try {
       setUpdatingId(logId);
 
@@ -75,7 +75,6 @@ export default function CoachProgramHistoryPage() {
 
       if (error) throw error;
 
-      // Mettre à jour l'état local
       setSessions((prev) =>
         prev.map((s) => (s.id === logId ? { ...s, coach_reviewed: true } : s))
       );
@@ -110,7 +109,7 @@ export default function CoachProgramHistoryPage() {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-3xl mx-auto pb-24">
       {/* Bouton Retour */}
       <button
-        onClick={() => window.history.back()}
+        onClick={() => router.back()}
         className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6 transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -126,7 +125,7 @@ export default function CoachProgramHistoryPage() {
           {programTitle || "Séance d'entraînement"}
         </h1>
         <p className="text-xs text-slate-400 mt-1">
-          {sessions.length} session{sessions.length > 1 ? "s" : ""} réalisée{sessions.length > 1 ? "s" : ""} par l'élève.
+          {sessions.length} session{sessions.length > 1 ? "s" : ""} réalisée{sessions.length > 1 ? "s" : ""} au total.
         </p>
       </div>
 
@@ -152,7 +151,7 @@ export default function CoachProgramHistoryPage() {
               minute: "2-digit",
             });
 
-            // Extraire les performances depuis actual_performances (JSON)
+            // Parse sécurisé de actual_performances (JSON)
             let performances = [];
             if (session.actual_performances) {
               performances = typeof session.actual_performances === "string" 
@@ -192,12 +191,11 @@ export default function CoachProgramHistoryPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* Bouton de validation rapide */}
                     {!session.coach_reviewed && (
                       <button
                         onClick={(e) => handleMarkAsReviewed(e, session.id)}
                         disabled={updatingId === session.id}
-                        className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition-all shadow-sm"
+                        className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition-all shadow-sm cursor-pointer"
                         title="Valider cette séance"
                       >
                         {updatingId === session.id ? (
@@ -250,27 +248,40 @@ export default function CoachProgramHistoryPage() {
                     {Array.isArray(performances) && performances.length > 0 ? (
                       <div className="space-y-3">
                         {performances.map((perf, idx) => {
-                          const name = perf.name || perf.exercise_name || `Exercice #${idx + 1}`;
-                          const sets = perf.sets_completed ?? perf.sets ?? "-";
-                          const reps = perf.reps_completed ?? perf.reps ?? "-";
-                          const weight = perf.weight_used ?? perf.weight ?? null;
+                          const name = perf.name || perf.exercise_name || perf.title || `Exercice #${idx + 1}`;
+                          
+                          let setsDisplay = "-";
+                          let repsDisplay = "-";
+                          let weightDisplay = perf.weight_used ?? perf.weight ?? perf.target_weight ?? null;
+
+                          if (Array.isArray(perf.sets)) {
+                            setsDisplay = perf.sets.length;
+                            const repsList = perf.sets.map((s) => s.reps || s.reps_completed).filter(Boolean);
+                            if (repsList.length > 0) repsDisplay = repsList.join(" / ");
+                          } else {
+                            setsDisplay = perf.sets_completed ?? perf.sets ?? perf.completed_sets ?? "-";
+                            repsDisplay = perf.reps_completed ?? perf.reps ?? perf.completed_reps ?? "-";
+                          }
 
                           return (
                             <div
                               key={idx}
-                              className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs"
+                              className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs"
                             >
-                              <span className="font-bold text-white">{name}</span>
-                              <div className="flex gap-2.5 text-slate-300">
+                              <span className="font-bold text-white text-sm sm:text-xs">{name}</span>
+
+                              <div className="flex flex-wrap gap-2 text-slate-300">
                                 <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                  <strong className="text-amber-400">{sets}</strong> séries
+                                  <strong className="text-amber-400">{setsDisplay}</strong> {typeof setsDisplay === "number" && setsDisplay > 1 ? "séries" : "série"}
                                 </span>
+
                                 <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                  <strong className="text-amber-400">{reps}</strong> reps
+                                  <strong className="text-amber-400">{repsDisplay}</strong> reps
                                 </span>
-                                {weight !== null && (
+
+                                {weightDisplay !== null && weightDisplay !== "" && (
                                   <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                    <strong className="text-amber-400">{weight}</strong> kg
+                                    <strong className="text-amber-400">{weightDisplay}</strong> kg
                                   </span>
                                 )}
                               </div>
@@ -280,11 +291,10 @@ export default function CoachProgramHistoryPage() {
                       </div>
                     ) : (
                       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-400">
-                        Session enregistrée. Durée totale : <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
+                        Session enregistrée. Aucune donnée détaillée d'exercice.
                       </div>
                     )}
 
-                    {/* Bouton principal de validation en bas d'accordéon si non validée */}
                     {!session.coach_reviewed && (
                       <button
                         onClick={(e) => handleMarkAsReviewed(e, session.id)}
