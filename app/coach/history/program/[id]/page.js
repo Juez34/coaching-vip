@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 import { 
   ArrowLeft, Loader2, Clock, Dumbbell, 
   ChevronDown, ChevronUp, CheckCircle2, AlertCircle, MessageSquare, Check 
@@ -151,7 +151,6 @@ export default function CoachProgramHistoryPage() {
               try { rawPerf = JSON.parse(rawPerf); } catch (e) {}
             }
 
-            // Normalisation pour gérer les tableaux d'exercices
             let performancesList = Array.isArray(rawPerf) ? rawPerf : [];
 
             return (
