@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { supabase } from "../="../../../../lib/supabase";
+import { supabase } from "../="../../../../../lib/supabase";
 import { 
   ArrowLeft, Loader2, Clock, Dumbbell, 
   ChevronDown, ChevronUp, CheckCircle2, AlertCircle, MessageSquare, Check 
