@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
-  Loader2, Dumbbell, Clock, LogOut, User, Check, Play, History 
+  Loader2, Dumbbell, Clock, LogOut, User, Check, ChevronRight 
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,6 +28,7 @@ export default function StudentDashboardPage() {
         return;
       }
 
+      // 1. Profil utilisateur
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
@@ -35,15 +36,17 @@ export default function StudentDashboardPage() {
         .single();
       setUserProfile(profile);
 
+      // 2. Programmes attribués avec le résumé des exercices
       const { data: progData, error: progErr } = await supabase
         .from("programs")
-        .select("*, exercises(count)")
+        .select("*, exercises(id, name, sets, reps)")
         .eq("student_id", user.id)
         .order("created_at", { ascending: false });
 
       if (progErr) throw progErr;
       setPrograms(progData || []);
 
+      // 3. Récupération des logs pour repérer les séances déjà réalisées
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("id, program_id")
@@ -88,7 +91,7 @@ export default function StudentDashboardPage() {
             Bienvenue, {userProfile?.full_name || "Sportif"}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Retrouve tes programmes d'entraînement personnels.
+            Retrouve tes séances d'entraînement.
           </p>
         </div>
 
@@ -122,59 +125,65 @@ export default function StudentDashboardPage() {
             Aucun programme ne t'a été assigné pour le moment.
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {programs.map((prog) => {
               const isDone = completedProgramIds.has(prog.id);
+              const exercisesList = prog.exercises || [];
 
               return (
-                <div
+                <Link
                   key={prog.id}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-md"
+                  href={`/client/history/${prog.id}`}
+                  className="block bg-slate-900 border border-slate-800 hover:border-amber-400/50 rounded-2xl p-5 shadow-md transition-all group cursor-pointer"
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-bold text-white">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="text-base font-bold text-white group-hover:text-amber-400 transition-colors">
                         {prog.title}
                       </h3>
-                      {isDone ? (
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
-                          <Check className="w-3 h-3" /> Déjà faite
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/10 text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-400/20 flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> À faire
-                        </span>
-                      )}
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {exercisesList.length} exercice{exercisesList.length > 1 ? "s" : ""}
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      {prog.exercises?.[0]?.count || 0} exercice(s)
-                    </p>
-                  </div>
 
-                  {/* Boutons d'action */}
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    {/* Bouton pour relancer la séance */}
-                    <Link
-                      href={`/client/workout/${prog.id}`}
-                      className="flex-1 sm:flex-none bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-slate-950" />
-                      <span>{isDone ? "Refaire" : "Démarrer"}</span>
-                    </Link>
-
-                    {/* Bouton pour voir l'historique des sessions (uniquement si au moins 1 réalisation) */}
-                    {isDone && (
-                      <Link
-                        href={`/client/history/${prog.id}`}
-                        className="flex-1 sm:flex-none bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white font-bold px-3.5 py-2.5 rounded-xl text-xs border border-slate-800 flex items-center justify-center gap-1.5 transition-all"
-                        title="Consulter l'historique des sessions"
-                      >
-                        <History className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Historique</span>
-                      </Link>
+                    {isDone ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Réalisée
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/10 text-amber-400 px-2.5 py-1 rounded-full border border-amber-400/20 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> À faire
+                      </span>
                     )}
                   </div>
-                </div>
+
+                  {/* Résumé succinct des exercices dans la carte */}
+                  {exercisesList.length > 0 && (
+                    <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 mb-3 space-y-1.5">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider block mb-1">
+                        Aperçu des exercices :
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {exercisesList.map((exo) => (
+                          <span
+                            key={exo.id}
+                            className="text-[11px] bg-slate-900 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-lg"
+                          >
+                            <strong className="text-white">{exo.name}</strong> 
+                            {exo.sets && exo.reps && (
+                              <span className="text-slate-500 ml-1">({exo.sets}x{exo.reps})</span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end items-center text-xs font-bold text-amber-400 group-hover:translate-x-1 transition-transform">
+                    <span>Ouvrir la séance</span>
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </div>
+                </Link>
               );
             })}
           </div>
