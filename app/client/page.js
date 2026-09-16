@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
-  Dumbbell, Play, CheckCircle2, Clock, Loader2, ChevronRight 
+  Dumbbell, Play, CheckCircle2, Clock, Loader2, ChevronRight, User 
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,7 +28,6 @@ export default function ClientDashboardPage() {
         return;
       }
 
-      // 1. Profil client
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
@@ -36,7 +35,6 @@ export default function ClientDashboardPage() {
         .single();
       setUserProfile(profile);
 
-      // 2. Programmes assignés avec aperçu des exercices
       const { data: progsData, error: progsErr } = await supabase
         .from("programs")
         .select("*, exercises(id, name, sets, reps)")
@@ -46,7 +44,6 @@ export default function ClientDashboardPage() {
       if (progsErr) throw progsErr;
       setPrograms(progsData || []);
 
-      // 3. Historique des logs du client
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("id, program_id, created_at, coach_reviewed")
@@ -72,7 +69,7 @@ export default function ClientDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-4xl mx-auto pb-24">
-      {/* En-tête Profil Client */}
+      {/* En-tête Profil Client avec bouton d'accès au Profil */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8 flex items-center justify-between">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
@@ -85,6 +82,15 @@ export default function ClientDashboardPage() {
             Retrouvez vos séances et suivez vos progrès d'entraînement.
           </p>
         </div>
+
+        {/* Bouton d'accès au profil */}
+        <Link
+          href="/client/profile"
+          className="bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-400 p-3 rounded-xl transition-all shadow-md flex items-center justify-center cursor-pointer"
+          title="Mon profil"
+        >
+          <User className="w-5 h-5" />
+        </Link>
       </div>
 
       {/* Section des Séances */}
@@ -105,7 +111,6 @@ export default function ClientDashboardPage() {
               const isDone = programLogs.length > 0;
               const exercisesList = prog.exercises || [];
 
-              // Détermination de la destination au clic
               const targetUrl = isDone 
                 ? `/client/history/${prog.id}` 
                 : `/client/workout/${prog.id}`;
@@ -143,7 +148,6 @@ export default function ClientDashboardPage() {
                     </div>
                   </div>
 
-                  {/* Aperçu des exercices */}
                   {exercisesList.length > 0 && (
                     <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-1.5">
                       <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider block mb-1">
