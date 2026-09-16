@@ -8,7 +8,7 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-export default function StudentWorkoutDetailPage() {
+export default function StudentWorkoutHistoryPage() {
   const params = useParams();
   const programId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
 
@@ -19,18 +19,18 @@ export default function StudentWorkoutDetailPage() {
 
   useEffect(() => {
     if (programId) {
-      fetchWorkoutDetails();
+      fetchWorkoutHistory();
     }
   }, [programId]);
 
-  const fetchWorkoutDetails = async () => {
+  const fetchWorkoutHistory = async () => {
     try {
       setLoading(true);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Récupérer le nom du programme
+      // 1. Récupérer le titre de la séance
       const { data: programData } = await supabase
         .from("programs")
         .select("title")
@@ -41,10 +41,10 @@ export default function StudentWorkoutDetailPage() {
         setProgramTitle(programData.title);
       }
 
-      // 2. Récupérer toutes les sessions (workout_logs) réalisées par l'élève pour cette séance avec leurs résultats
+      // 2. Récupérer les logs d'entraînement enregistrés pour cette séance et cet élève
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
-        .select("*, workout_log_entries(*)")
+        .select("*")
         .eq("program_id", programId)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
@@ -53,12 +53,11 @@ export default function StudentWorkoutDetailPage() {
 
       setSessions(logsData || []);
 
-      // Ouvrir automatiquement la session la plus récente
       if (logsData && logsData.length > 0) {
         setOpenSessionId(logsData[0].id);
       }
     } catch (err) {
-      console.error("Erreur de chargement des sessions :", err);
+      console.error("Erreur chargement historique client :", err);
     } finally {
       setLoading(false);
     }
@@ -85,6 +84,7 @@ export default function StudentWorkoutDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-3xl mx-auto pb-24">
+      {/* Bouton Retour */}
       <Link
         href="/client"
         className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6 transition-colors"
@@ -93,11 +93,11 @@ export default function StudentWorkoutDetailPage() {
         <span>Retour à mes séances</span>
       </Link>
 
-      {/* En-tête avec action de relance */}
+      {/* En-tête */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
-            Détail de la séance
+            Détail & Historique
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-white mt-2">
             {programTitle || "Séance d'entraînement"}
@@ -107,16 +107,17 @@ export default function StudentWorkoutDetailPage() {
           </p>
         </div>
 
-        <Link
-          href={`/client/workout/${programId}`}
-          className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-5 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all w-full sm:w-auto justify-center"
-        >
-          <Play className="w-4 h-4 fill-slate-950" />
-          <span>Lancer l'entraînement</span>
-        </Link>
+        {programId && (
+          <Link
+            href={`/client/workout/${programId}`}
+            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-5 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all w-full sm:w-auto justify-center"
+          >
+            <Play className="w-4 h-4 fill-slate-950" />
+            <span>Lancer l'entraînement</span>
+          </Link>
+        )}
       </div>
 
-      {/* Accordéon des sessions réalisées */}
       <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
         <Clock className="w-4 h-4 text-amber-400" />
         <span>Historique des sessions</span>
@@ -124,7 +125,7 @@ export default function StudentWorkoutDetailPage() {
 
       {sessions.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">
-          Tu n'as pas encore réalisé cette séance. Clique sur "Lancer l'entraînement" pour démarrer ta première session.
+          Aucune session enregistrée pour le moment. Clique sur "Lancer l'entraînement" pour démarrer.
         </div>
       ) : (
         <div className="space-y-4">
@@ -139,7 +140,13 @@ export default function StudentWorkoutDetailPage() {
               minute: "2-digit",
             });
 
-            const entries = session.workout_log_entries || [];
+            // Parse des résultats réels stockés dans actual_performances (JSON)
+            let performances = [];
+            if (session.actual_performances) {
+              performances = typeof session.actual_performances === "string" 
+                ? JSON.parse(session.actual_performances) 
+                : session.actual_performances;
+            }
 
             return (
               <div
@@ -184,7 +191,7 @@ export default function StudentWorkoutDetailPage() {
                   </div>
                 </button>
 
-                {/* Contenu dépliable */}
+                {/* Contenu de la session */}
                 {isOpen && (
                   <div className="p-4 sm:p-5 border-t border-slate-800 space-y-4 bg-slate-950/50">
                     <div className="flex justify-between items-center text-xs text-slate-400 sm:hidden pb-2 border-b border-slate-800">
@@ -192,46 +199,52 @@ export default function StudentWorkoutDetailPage() {
                       <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
                     </div>
 
-                    {session.notes && (
+                    {/* Remarque enregistrée dans student_comment */}
+                    {session.student_comment && (
                       <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs space-y-1">
                         <span className="font-bold text-amber-400 flex items-center gap-1.5">
                           <MessageSquare className="w-3.5 h-3.5" />
-                          <span>Note de séance :</span>
+                          <span>Remarque de séance :</span>
                         </span>
-                        <p className="text-slate-300 italic pl-5">{session.notes}</p>
+                        <p className="text-slate-300 italic pl-5">{session.student_comment}</p>
                       </div>
                     )}
 
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                       <Dumbbell className="w-4 h-4 text-amber-400" />
-                      <span>Résultats enregistrés</span>
+                      <span>Résultats des exercices</span>
                     </h4>
 
-                    {entries && entries.length > 0 ? (
+                    {Array.isArray(performances) && performances.length > 0 ? (
                       <div className="space-y-3">
-                        {entries.map((entry, idx) => (
-                          <div
-                            key={entry.id || idx}
-                            className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs"
-                          >
-                            <span className="font-bold text-white">
-                              {entry.exercise_name || `Exercice #${idx + 1}`}
-                            </span>
-                            <div className="flex gap-2.5 text-slate-300">
-                              <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                <strong className="text-amber-400">{entry.sets_completed || "-"}</strong> séries
-                              </span>
-                              <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                <strong className="text-amber-400">{entry.reps_completed || "-"}</strong> reps
-                              </span>
-                              {entry.weight_used && (
+                        {performances.map((perf, idx) => {
+                          const name = perf.name || perf.exercise_name || `Exercice #${idx + 1}`;
+                          const sets = perf.sets_completed ?? perf.sets ?? "-";
+                          const reps = perf.reps_completed ?? perf.reps ?? "-";
+                          const weight = perf.weight_used ?? perf.weight ?? null;
+
+                          return (
+                            <div
+                              key={idx}
+                              className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs"
+                            >
+                              <span className="font-bold text-white">{name}</span>
+                              <div className="flex gap-2.5 text-slate-300">
                                 <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                                  <strong className="text-amber-400">{entry.weight_used}</strong> kg
+                                  <strong className="text-amber-400">{sets}</strong> séries
                                 </span>
-                              )}
+                                <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                                  <strong className="text-amber-400">{reps}</strong> reps
+                                </span>
+                                {weight !== null && (
+                                  <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                                    <strong className="text-amber-400">{weight}</strong> kg
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-400">
