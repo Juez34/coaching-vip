@@ -96,23 +96,25 @@ function NewProgramForm() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      // 1. Création du programme dans la table 'programs'
+      // 1. Création du programme avec alignement complet sur le schéma SQL
       const { data: program, error: progErr } = await supabase
         .from("programs")
         .insert({
           title: title.trim(),
           student_id: selectedStudentId,
-          coach_id: user.id
+          client_id: selectedStudentId,    // Complété d'après la table
+          coach_id: user.id,
+          coach_user_id: user.id          // Complété d'après la table
         })
         .select("id")
         .single();
 
       if (progErr) {
-        console.error("Erreur création programme:", progErr);
-        throw new Error(`Erreur lors de la création du programme : ${progErr.message}`);
+        console.error("Erreur insertion programme :", progErr);
+        throw new Error(`Erreur programme: ${progErr.message}`);
       }
 
-      // 2. Préparation sécurisée des exercices
+      // 2. Préparation des exercices
       const exercisesToInsert = exercises.map((exo, index) => ({
         program_id: program.id,
         name: exo.name.trim() || `Exercice #${index + 1}`,
@@ -123,19 +125,19 @@ function NewProgramForm() {
         order_index: index
       }));
 
-      // 3. Insertion dans la table 'exercises'
+      // 3. Insertion des exercices
       const { error: exoErr } = await supabase
         .from("exercises")
         .insert(exercisesToInsert);
 
       if (exoErr) {
-        console.error("Erreur création exercices:", exoErr);
-        throw new Error(`Erreur lors de l'ajout des exercices : ${exoErr.message}`);
+        console.error("Erreur insertion exercices :", exoErr);
+        throw new Error(`Erreur exercices: ${exoErr.message}`);
       }
 
       router.push(`/coach/students/${selectedStudentId}`);
     } catch (err) {
-      console.error("Détails de l'erreur :", err);
+      console.error("Erreur soumission :", err);
       alert(err.message || "Erreur lors de la création de la séance.");
     } finally {
       setLoading(false);
