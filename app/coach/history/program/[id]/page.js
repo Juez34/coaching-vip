@@ -1,99 +1,102 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../../../lib/supabase";
-import { ArrowLeft, Loader2, Dumbbell, Calendar, Clock, Check, X, CheckCircle2, Home, ChevronDown, ChevronUp } from "lucide-react";
+import { 
+  ArrowLeft, Loader2, Clock, Dumbbell, 
+  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, MessageSquare, Check 
+} from "lucide-react";
 import Link from "next/link";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
 export default function CoachProgramHistoryPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
   const programId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
-  const studentId = searchParams.get("student");
 
   const [loading, setLoading] = useState(true);
-  const [program, setProgram] = useState(null);
-  const [exercisesList, setExercisesList] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [studentProfile, setStudentProfile] = useState(null);
-
-  const [openLogIds, setOpenLogIds] = useState({});
+  const [updatingId, setUpdatingId] = useState(null);
+  const [programTitle, setProgramTitle] = useState("");
+  const [studentName, setStudentName] = useState("");
+  const [sessions, setSessions] = useState([]);
+  const [openSessionId, setOpenSessionId] = useState(null);
 
   useEffect(() => {
     if (programId) {
       fetchProgramHistory();
     }
-  }, [programId, studentId]);
+  }, [programId]);
 
   const fetchProgramHistory = async () => {
     try {
       setLoading(true);
 
-      const { data: progData } = await supabase
+      // 1. Charger les infos du programme
+      const { data: programData } = await supabase
         .from("programs")
-        .select("*")
+        .select("title, profiles!programs_student_id_fkey(full_name)")
         .eq("id", programId)
-        .single();
-      setProgram(progData);
+        .maybeSingle();
 
-      const { data: exData } = await supabase
-        .from("exercises")
-        .select("*")
-        .eq("program_id", programId)
-        .order("order_index", { ascending: true });
-      setExercisesList(exData || []);
+      if (programData) {
+        setProgramTitle(programData.title);
+        setStudentName(programData.profiles?.full_name || "Élève");
+      }
 
-      let query = supabase
+      // 2. Récupérer toutes les sessions réalisées pour ce programme
+      const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
         .select("*")
         .eq("program_id", programId)
         .order("created_at", { ascending: false });
 
-      if (studentId) {
-        query = query.eq("user_id", studentId);
-      }
+      if (logsErr) throw logsErr;
 
-      const { data: logsData } = await query;
-      setLogs(logsData || []);
+      setSessions(logsData || []);
 
-      // Si une seule session réalisée, on la déroule automatiquement. S'il y en a plusieurs, tout est enroulé par défaut.
-      if (logsData && logsData.length === 1) {
-        setOpenLogIds({ [logsData[0].id]: true });
-      } else {
-        setOpenLogIds({});
-      }
-
-      if (studentId) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", studentId)
-          .maybeSingle();
-        setStudentProfile(profileData);
+      if (logsData && logsData.length > 0) {
+        setOpenSessionId(logsData[0].id);
       }
     } catch (err) {
-      console.error("Erreur de chargement :", err);
+      console.error("Erreur chargement historique coach :", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleAccordion = (logId) => {
-    setOpenLogIds((prev) => ({
-      ...prev,
-      [logId]: !prev[logId]
-    }));
+  // Action pour valider/marquer la séance comme revue par le coach
+  const handleMarkAsReviewed = async (e, logId) => {
+    e.stopPropagation(); // Évite de fermer l'accordéon au clic
+    try {
+      setUpdatingId(logId);
+
+      const { error } = await supabase
+        .from("workout_logs")
+        .update({ coach_reviewed: true })
+        .eq("id", logId);
+
+      if (error) throw error;
+
+      // Mettre à jour l'état local
+      setSessions((prev) =>
+        prev.map((s) => (s.id === logId ? { ...s, coach_reviewed: true } : s))
+      );
+    } catch (err) {
+      console.error("Erreur lors de la validation de la séance :", err);
+      alert("Impossible de valider cette séance.");
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
-  const totalSessions = logs.length;
-  const lastSessionDate = totalSessions > 0 && logs[0].created_at 
-    ? new Date(logs[0].created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric' })
-    : null;
-  const avgDuration = totalSessions > 0 
-    ? Math.round(logs.reduce((acc, curr) => acc + (curr.duration_seconds || 0), 0) / totalSessions / 60)
-    : 0;
+  const toggleSession = (sessionId) => {
+    setOpenSessionId((prev) => (prev === sessionId ? null : sessionId));
+  };
+
+  const formatDuration = (seconds) => {
+    if (!seconds) return "Non mesurée";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins} min ${secs > 0 ? `${secs}s` : ""}`;
+  };
 
   if (loading) {
     return (
@@ -104,192 +107,199 @@ export default function CoachProgramHistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-2xl mx-auto pb-24">
-      <div className="flex justify-between items-center mb-6">
-        <button 
-          onClick={() => router.back()} 
-          className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Retour au dossier</span>
-        </button>
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 max-w-3xl mx-auto pb-24">
+      {/* Bouton Retour */}
+      <button
+        onClick={() => window.history.back()}
+        className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-400 mb-6 transition-colors cursor-pointer"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span>Retour au dossier élève</span>
+      </button>
 
-        <Link 
-          href="/coach"
-          className="inline-flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-amber-400 px-3 py-1.5 rounded-xl border border-slate-800 transition-colors"
-        >
-          <Home className="w-3.5 h-3.5" />
-          <span>Accueil Coach</span>
-        </Link>
+      {/* En-tête */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/20">
+          Suivi de séance • {studentName}
+        </span>
+        <h1 className="text-2xl sm:text-3xl font-black text-white mt-2">
+          {programTitle || "Séance d'entraînement"}
+        </h1>
+        <p className="text-xs text-slate-400 mt-1">
+          {sessions.length} session{sessions.length > 1 ? "s" : ""} réalisée{sessions.length > 1 ? "s" : ""} par l'élève.
+        </p>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-6 space-y-4">
-        <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full border border-amber-400/25">
-            Historique des itérations
-          </span>
-          <h1 className="text-2xl font-black text-white mt-2">{program?.title || "Programme"}</h1>
-          {studentProfile && (
-            <p className="text-xs text-slate-400 mt-1">
-              Élève : <span className="text-white font-bold">{studentProfile.full_name || studentProfile.email}</span>
-            </p>
-          )}
-        </div>
+      <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+        <Clock className="w-4 h-4 text-amber-400" />
+        <span>Historique des sessions</span>
+      </h2>
 
-        {/* Résumé de l'historique global */}
-        {totalSessions > 0 && (
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800 text-[11px]">
-            <span className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-300 flex items-center gap-1.5">
-              🏋️‍♂️ <strong className="text-white">{totalSessions}</strong> session{totalSessions > 1 ? "s" : ""} réalisée{totalSessions > 1 ? "s" : ""}
-            </span>
-            {lastSessionDate && (
-              <span className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-300 flex items-center gap-1.5">
-                📅 Dernier : <strong className="text-white">{lastSessionDate}</strong>
-              </span>
-            )}
-            <span className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 text-slate-300 flex items-center gap-1.5">
-              ⏱️ Moy. : <strong className="text-amber-400">{avgDuration} min</strong>
-            </span>
-          </div>
-        )}
-
-        {/* 🌟 Résumé unique de la séance affiché au-dessus des accordéons */}
-        {exercisesList.length > 0 && (
-          <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-              <Dumbbell className="w-3.5 h-3.5" /> Structure du programme ({exercisesList.length} exercices)
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {exercisesList.map((ex) => (
-                <span key={ex.id} className="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg text-xs text-slate-200">
-                  {ex.name} <strong className="text-amber-400">({ex.sets}s</strong>{ex.reps ? <span className="text-slate-400"> • {ex.reps}r</span> : null})
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {logs.length === 0 ? (
+      {sessions.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">
-          Aucune session n'a encore été enregistrée pour ce programme.
+          Aucune session enregistrée pour cette séance par l'élève.
         </div>
       ) : (
-        <div className="space-y-3">
-          {logs.map((log, index) => {
-            const isOpen = !!openLogIds[log.id];
-            const performances = log.actual_performances || {};
-            const completedSets = log.completed_sets || {};
-            const exerciseComments = log.exercise_comments || {};
+        <div className="space-y-4">
+          {sessions.map((session, index) => {
+            const isOpen = openSessionId === session.id;
+            const sessionDate = new Date(session.created_at).toLocaleDateString("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+
+            // Extraire les performances depuis actual_performances (JSON)
+            let performances = [];
+            if (session.actual_performances) {
+              performances = typeof session.actual_performances === "string" 
+                ? JSON.parse(session.actual_performances) 
+                : session.actual_performances;
+            }
 
             return (
-              <div key={log.id || index} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg transition-all">
-                <button
-                  onClick={() => toggleAccordion(log.id)}
-                  className="w-full p-4 flex justify-between items-center bg-slate-900 hover:bg-slate-850 transition-colors text-left cursor-pointer gap-3"
+              <div
+                key={session.id}
+                className={`border rounded-2xl transition-all shadow-md overflow-hidden ${
+                  isOpen ? "bg-slate-900 border-amber-400/50" : "bg-slate-900/60 border-slate-800"
+                }`}
+              >
+                {/* Entête accordéon */}
+                <div
+                  onClick={() => toggleSession(session.id)}
+                  className="w-full p-4 sm:p-5 flex items-center justify-between text-left cursor-pointer hover:bg-slate-850 transition-colors"
                 >
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="font-bold bg-emerald-400/10 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-400/20 text-xs flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {log.created_at ? new Date(log.created_at).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Date inconnue"}
-                    </span>
-                    <span className="font-mono text-xs text-slate-300 bg-slate-950 px-2 py-1 rounded-md border border-slate-800 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-400" />
-                      {Math.floor((log.duration_seconds || 0) / 60)} min
-                    </span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-amber-400">
+                        Session #{sessions.length - index}
+                      </span>
+
+                      {session.coach_reviewed ? (
+                        <span className="text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Validée par le coach
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase bg-amber-400/10 text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-400/20 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" /> À réviser
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-sm font-bold text-white capitalize">{sessionDate}</h3>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {log.coach_reviewed ? (
-                      <span className="text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Lue
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold uppercase bg-amber-400/10 text-amber-400 px-2 py-0.5 rounded border border-amber-400/20">
-                        À examiner
-                      </span>
+                    {/* Bouton de validation rapide */}
+                    {!session.coach_reviewed && (
+                      <button
+                        onClick={(e) => handleMarkAsReviewed(e, session.id)}
+                        disabled={updatingId === session.id}
+                        className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 transition-all shadow-sm"
+                        title="Valider cette séance"
+                      >
+                        {updatingId === session.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <span className="hidden sm:inline">Valider</span>
+                          </>
+                        )}
+                      </button>
                     )}
 
-                    <div className="w-7 h-7 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-amber-400">
-                      {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </div>
+                    <span className="text-xs text-slate-400 flex items-center gap-1 hidden sm:flex">
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      {formatDuration(session.duration_seconds)}
+                    </span>
+
+                    {isOpen ? (
+                      <ChevronUp className="w-5 h-5 text-amber-400" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-slate-500" />
+                    )}
                   </div>
-                </button>
+                </div>
 
+                {/* Contenu dépliable */}
                 {isOpen && (
-                  <div className="p-4 pt-0 space-y-4 border-t border-slate-800/80 bg-slate-950/40">
-                    <div className="space-y-3 pt-3">
-                      <h3 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-1.5">
-                        <Dumbbell className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Détail et performances de cette itération</span>
-                      </h3>
-                      
+                  <div className="p-4 sm:p-5 border-t border-slate-800 space-y-4 bg-slate-950/50">
+                    <div className="flex justify-between items-center text-xs text-slate-400 sm:hidden pb-2 border-b border-slate-800">
+                      <span>Durée de l'effort :</span>
+                      <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
+                    </div>
+
+                    {session.student_comment && (
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs space-y-1">
+                        <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Remarque de l'élève :</span>
+                        </span>
+                        <p className="text-slate-300 italic pl-5">{session.student_comment}</p>
+                      </div>
+                    )}
+
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                      <Dumbbell className="w-4 h-4 text-amber-400" />
+                      <span>Performances réelles enregistrées</span>
+                    </h4>
+
+                    {Array.isArray(performances) && performances.length > 0 ? (
                       <div className="space-y-3">
-                        {exercisesList.map((ex) => {
-                          const exComment = exerciseComments[ex.id];
-                          
+                        {performances.map((perf, idx) => {
+                          const name = perf.name || perf.exercise_name || `Exercice #${idx + 1}`;
+                          const sets = perf.sets_completed ?? perf.sets ?? "-";
+                          const reps = perf.reps_completed ?? perf.reps ?? "-";
+                          const weight = perf.weight_used ?? perf.weight ?? null;
+
                           return (
-                            <div key={ex.id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
-                              <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
-                                <span className="font-bold text-white text-xs">{ex.name}</span>
+                            <div
+                              key={idx}
+                              className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center text-xs"
+                            >
+                              <span className="font-bold text-white">{name}</span>
+                              <div className="flex gap-2.5 text-slate-300">
+                                <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                                  <strong className="text-amber-400">{sets}</strong> séries
+                                </span>
+                                <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                                  <strong className="text-amber-400">{reps}</strong> reps
+                                </span>
+                                {weight !== null && (
+                                  <span className="bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
+                                    <strong className="text-amber-400">{weight}</strong> kg
+                                  </span>
+                                )}
                               </div>
-
-                              <div className="space-y-1.5">
-                                {Array.from({ length: ex.sets || 1 }).map((_, sIdx) => {
-                                  const key = `${ex.id}-${sIdx}`;
-                                  const isChecked = completedSets[key] === true;
-                                  const perf = performances[key] || {};
-
-                                  return (
-                                    <div 
-                                      key={sIdx} 
-                                      className={`flex justify-between items-center text-xs p-2 rounded-lg border ${
-                                        isChecked 
-                                          ? "bg-amber-400/5 border-amber-400/20" 
-                                          : "bg-slate-900/50 border-slate-800/50 opacity-60"
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        {isChecked ? (
-                                          <span className="p-0.5 bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30">
-                                            <Check className="w-3 h-3" />
-                                          </span>
-                                        ) : (
-                                          <span className="p-0.5 bg-slate-800 text-slate-500 rounded-full border border-slate-700">
-                                            <X className="w-3 h-3" />
-                                          </span>
-                                        )}
-                                        <span className="text-[11px] font-bold uppercase text-slate-400">Série {sIdx + 1}</span>
-                                      </div>
-
-                                      <span className={`font-mono font-bold px-2 py-0.5 rounded-md border text-xs ${
-                                        isChecked 
-                                          ? "text-amber-400 bg-amber-400/10 border-amber-400/20" 
-                                          : "text-slate-500 bg-slate-900 border-slate-800"
-                                      }`}>
-                                        {isChecked ? `${perf.reps || "0"} reps @ ${perf.weight || "0"}` : "Non validée"}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {exComment && (
-                                <p className="text-[11px] text-slate-400 bg-slate-900 p-2 rounded-lg border border-slate-800 italic">
-                                  💬 Note exercice : "{exComment}"
-                                </p>
-                              )}
                             </div>
                           );
                         })}
                       </div>
-                    </div>
-
-                    {log.student_comment && (
-                      <div className="bg-amber-400/10 p-3 rounded-xl border border-amber-400/20 text-xs space-y-1">
-                        <span className="font-bold text-amber-400 uppercase text-[10px]">Commentaire global de l'élève :</span>
-                        <p className="text-amber-200/90 italic">"{log.student_comment}"</p>
+                    ) : (
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-400">
+                        Session enregistrée. Durée totale : <strong className="text-white">{formatDuration(session.duration_seconds)}</strong>
                       </div>
+                    )}
+
+                    {/* Bouton principal de validation en bas d'accordéon si non validée */}
+                    {!session.coach_reviewed && (
+                      <button
+                        onClick={(e) => handleMarkAsReviewed(e, session.id)}
+                        disabled={updatingId === session.id}
+                        className="w-full mt-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold p-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                      >
+                        {updatingId === session.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4 stroke-[3]" />
+                            <span>Marquer cette session comme revue & validée</span>
+                          </>
+                        )}
+                      </button>
                     )}
                   </div>
                 )}
