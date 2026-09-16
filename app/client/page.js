@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
-  Dumbbell, Play, CheckCircle2, Clock, Loader2, History 
+  Dumbbell, Play, CheckCircle2, Clock, Loader2, ChevronRight 
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -105,15 +105,21 @@ export default function ClientDashboardPage() {
               const isDone = programLogs.length > 0;
               const exercisesList = prog.exercises || [];
 
+              // Détermination de la destination au clic
+              const targetUrl = isDone 
+                ? `/client/history/${prog.id}` 
+                : `/client/workout/${prog.id}`;
+
               return (
-                <div
+                <Link
                   key={prog.id}
-                  className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-md transition-all space-y-4"
+                  href={targetUrl}
+                  className="block bg-slate-900 border border-slate-800 hover:border-amber-400/50 rounded-2xl p-5 shadow-md transition-all group cursor-pointer space-y-3"
                 >
                   <div className="flex justify-between items-start gap-3">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-base font-bold text-white">
+                        <h3 className="text-base font-bold text-white group-hover:text-amber-400 transition-colors">
                           {prog.title}
                         </h3>
 
@@ -130,6 +136,10 @@ export default function ClientDashboardPage() {
                       <p className="text-xs text-slate-500 mt-0.5">
                         {exercisesList.length} exercice{exercisesList.length > 1 ? "s" : ""}
                       </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
                     </div>
                   </div>
 
@@ -154,38 +164,7 @@ export default function ClientDashboardPage() {
                       </div>
                     </div>
                   )}
-
-                  {/* Boutons d'actions directes */}
-                  <div className="pt-1">
-                    {isDone ? (
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/client/history/${prog.id}`}
-                          className="flex-1 bg-slate-950 hover:bg-slate-800 text-slate-300 text-center font-bold py-2.5 rounded-xl text-xs border border-slate-800 transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          <History className="w-3.5 h-3.5" />
-                          <span>Historique</span>
-                        </Link>
-                        <Link
-                          href={`/client/workout/${prog.id}`}
-                          className="flex-1 bg-amber-400 hover:bg-amber-300 text-slate-950 text-center font-black py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-slate-950" />
-                          <span>Refaire</span>
-                        </Link>
-                      </div>
-                    ) : (
-                      /* Bouton direct pour lancer une séance jamais faite */
-                      <Link
-                        href={`/client/workout/${prog.id}`}
-                        className="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 text-center font-black py-3 rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-lg"
-                      >
-                        <Play className="w-4 h-4 fill-slate-950" />
-                        <span>DÉMARRER LA SÉANCE</span>
-                      </Link>
-                    )}
-                  </div>
-                </div>
+                </Link>
               );
             })}
           </div>
