@@ -20,6 +20,10 @@ La correction ne doit pas reposer uniquement sur l'interface. Il faut :
 
 `app/admin/page.js` appelle `profiles.select("*")` depuis le client et affiche les noms, emails, rôles et téléphones de tous les profils. La confidentialité doit donc être imposée par la base ; la page ne doit pas être considérée comme protégée par sa seule URL. La migration doit préserver la vue administrative attendue tout en refusant cet accès aux autres rôles.
 
+### Élevé — les écrans de séance ne vérifient pas eux-mêmes la propriété du programme
+
+`app/client/workout/[id]/page.js` charge le programme et ses exercices depuis l'identifiant présent dans l'URL, sans vérifier dans le code que le programme appartient à l'utilisateur connecté. L'insertion de l'historique utilise bien l'identifiant de l'utilisateur connecté, mais le client peut tenter de charger une séance qui n'est pas la sienne. `app/coach/programs/[id]/edit/page.js` charge également un programme et ses logs par identifiant sans vérifier dans le composant que le coach est autorisé à gérer ce programme. La sécurité doit être garantie par RLS ; l'interface doit aussi gérer proprement les refus d'accès.
+
 ### Moyen — récupération des profils insuffisamment contrôlée
 
 Plusieurs pages ignorent l'erreur lors de la lecture du profil et peuvent continuer avec un profil absent. Le correctif devra gérer explicitement le profil absent, le rôle inconnu et l'erreur de lecture, sans attribuer de privilèges par défaut.
@@ -47,7 +51,7 @@ Avant de modifier les écrans, conserver et tester les parcours existants :
 | --- | --- |
 | Visiteur anonyme ouvre directement `/admin` ou `/coach` | Redirection vers connexion ; aucune donnée privée récupérable |
 | Compte client ouvre `/admin` ou `/coach` directement | Refus côté interface et données refusées par RLS |
-| Coach A tente de lire les profils / programmes de l'élève de Coach B | Refus |
+| Coach A tente de lire les profils / programmes de l'élève de Coach B | Refus |\n| Client ouvre directement l'URL d'un programme qui ne lui est pas attribué | Refus de lecture et aucune possibilité d'enregistrer un historique pour ce programme |\n| Coach ouvre directement l'URL d'édition d'un programme d'un autre coach | Refus de lecture et de modification |
 | Client A tente de lire/modifier les données privées de Client B | Refus |
 | Client modifie ses métadonnées Auth ou son profil pour devenir coach/admin | Le rôle privilégié n'est pas accordé |
 | Client tente d'ajouter une relation coach-élève non autorisée | Refus |
