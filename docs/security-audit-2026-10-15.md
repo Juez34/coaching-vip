@@ -46,3 +46,7 @@ La création de programme enregistre d'abord le programme, puis les exercices da
 
 ## État
 Ce document ne change pas le comportement de l'application. Aucun correctif applicatif ou SQL n'a été appliqué à Supabase ou à la production Vercel.
+
+
+## Audit complémentaire des accès UI
+Une inspection complémentaire des pages d'accueil, coach, client et administration a relevé des contrôles de rôle manquants côté interface et une lecture globale des profils dans l'espace admin. Voir [l'audit complémentaire des contrôles d'accès](access-control-audit-2026-10-15.md). Ces contrôles d'interface ne remplacent pas les politiques RLS ; aucune correction applicative ou de base n'a été appliquée.
