@@ -120,10 +120,17 @@ export default function AdminDashboard() {
       </header>
 
       <main className="space-y-6">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Users className="w-5 h-5 text-emerald-400" />
-          <span>Comptes enregistrés ({profiles.length})</span>
-        </h2>
+        <div id="admin-accounts" className="flex flex-wrap items-center justify-between gap-3 scroll-mt-6">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Users className="w-5 h-5 text-emerald-400" />
+            <span>{showPendingOnly ? `Demandes coach en attente (${pendingCoachRequests.length})` : `Comptes enregistrés (${profiles.length})`}</span>
+          </h2>
+          {showPendingOnly && (
+            <button type="button" onClick={() => setShowPendingOnly(false)} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800">
+              <X className="h-3.5 w-3.5" /> Voir tous les comptes
+            </button>
+          )}
+        </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
           <div className="overflow-x-auto">
@@ -177,7 +184,14 @@ export default function AdminDashboard() {
                     <td className="p-4 text-slate-400">{p.phone || "—"}</td>
                   </tr>
                 ))}
-                {displayedProfiles.length === 0 && (\n                  <tr>\n                    <td colSpan={5} className="p-8 text-center text-sm text-slate-500">\n                      {showPendingOnly ? "Aucune demande coach en attente." : "Aucun compte enregistré."}\n                    </td>\n                  </tr>\n                )}\n              </tbody>
+                {displayedProfiles.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-sm text-slate-500">
+                      {showPendingOnly ? "Aucune demande coach en attente." : "Aucun compte enregistré."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
             </table>
           </div>
         </div>
