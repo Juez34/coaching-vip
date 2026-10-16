@@ -27,7 +27,9 @@ export default function ProfileRedirectPage() {
         .eq("id", user.id)
         .single();
 
-      if (profile?.role === "admin") {\n        router.replace("/admin/profile");\n      } else if (profile?.role === "coach") {
+      if (profile?.role === "admin") {
+        router.replace("/admin/profile");
+      } else if (profile?.role === "coach") {
         router.replace("/coach/profile");
       } else {
         router.replace("/client/profile");
