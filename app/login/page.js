@@ -91,6 +91,16 @@ export default function Login() {
           }
         }
 
+        if (role === "coach" && data.user) {
+          // L'envoi est géré côté serveur. Une erreur d'e-mail ne doit pas annuler l'inscription.
+          const { error: notificationError } = await supabase.functions.invoke("coach-email-notifications", {
+            body: { action: "coach-requested", user_id: data.user.id },
+          });
+          if (notificationError) {
+            console.error("Demande coach enregistrée, mais notification e-mail non envoyée :", notificationError);
+          }
+        }
+
         alert(
           role === "coach"
             ? "Compte créé. Ta demande pour devenir coach a été enregistrée ; l'accès coach doit être validé par l'administrateur. Tu peux te connecter en attendant."
