@@ -48,6 +48,14 @@ export default function AdminDashboard() {
       setProfiles((current) =>
         current.map((item) => item.id === profile.id ? { ...item, role: "coach" } : item)
       );
+
+      const { error: notificationError } = await supabase.functions.invoke("coach-email-notifications", {
+        body: { action: "coach-approved", user_id: profile.id },
+      });
+      if (notificationError) {
+        console.error("Accès coach validé, mais e-mail de confirmation non envoyé :", notificationError);
+        alert("Accès coach validé, mais l'e-mail de confirmation n'a pas pu être envoyé. Vérifie la configuration Resend.");
+      }
     } catch (err) {
       console.error("Erreur validation coach :", err);
       alert("Impossible de valider ce compte coach. Vérifie que tu es connecté avec un compte administrateur.");
