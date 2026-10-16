@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { LogOut, User, Shield, Users, Dumbbell, Loader2 } from "lucide-react";
+import { LogOut, User, Shield, Users, Dumbbell, Loader2, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -24,6 +24,25 @@ export default function AdminDashboard() {
       console.error("Erreur de chargement des profils:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApproveCoach = async (profile) => {
+    if (!confirm(`Valider l'accès coach pour ${profile.full_name || profile.email || "ce compte"} ?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: "coach" })
+        .eq("id", profile.id);
+
+      if (error) throw error;
+      setProfiles((current) =>
+        current.map((item) => item.id === profile.id ? { ...item, role: "coach" } : item)
+      );
+    } catch (err) {
+      console.error("Erreur validation coach :", err);
+      alert("Impossible de valider ce compte coach. Vérifie que tu es connecté avec un compte administrateur.");
     }
   };
 
@@ -114,6 +133,15 @@ export default function AdminDashboard() {
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-orange-400/10 text-orange-300 border-orange-400/20">
                           Demande coach à valider
                         </span>
+                      ) : p.requested_role === "coach" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleApproveCoach(p)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-[10px] font-bold uppercase text-emerald-300 hover:bg-emerald-400/20"
+                        >
+                          <CheckCircle className="h-3 w-3" />
+                          Valider
+                        </button>
                       ) : (
                         <span className="text-slate-500">—</span>
                       )}
