@@ -16,9 +16,9 @@ Migrations enregistrées dans Supabase :
 - `20261016080525_secure_privileged_auth_trigger_functions`
 - `20261016080546_harden_rls_for_coaching_vip_tables`
 - `20261016080554_restrict_coach_workout_log_updates`
-- `202610160806xx_fix_profile_privilege_guard_execution_context` — le numéro exact est celui enregistré par Supabase.
-- `grant_private_helper_schema_usage`
-- `fix_workout_log_guard_execution_context`
+- `20261016080626_fix_profile_privilege_guard_execution_context`
+- `20261016080634_grant_private_helper_schema_usage`
+- `20261016080644_fix_workout_log_guard_execution_context`
 
 Corrections principales :
 
