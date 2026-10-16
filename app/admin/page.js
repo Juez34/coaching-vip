@@ -17,7 +17,7 @@ export default function AdminDashboard() {
   const fetchAllProfiles = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.from("profiles").select("*");
+      const { data, error } = await supabase.from("profiles").select("*, requested_role");
       if (error) throw error;
       setProfiles(data || []);
     } catch (err) {
@@ -87,6 +87,7 @@ export default function AdminDashboard() {
                   <th className="p-4">Nom / Prénom</th>
                   <th className="p-4">Email</th>
                   <th className="p-4">Rôle</th>
+                  <th className="p-4">Demande d'accès</th>
                   <th className="p-4">Téléphone</th>
                 </tr>
               </thead>
@@ -105,6 +106,17 @@ export default function AdminDashboard() {
                       }`}>
                         {p.role}
                       </span>
+                    </td>
+                    <td className="p-4">
+                      {p.role === "coach" ? (
+                        <span className="text-[10px] font-bold uppercase text-emerald-400">Coach activé</span>
+                      ) : p.requested_role === "coach" ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-orange-400/10 text-orange-300 border-orange-400/20">
+                          Demande coach à valider
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">—</span>
+                      )}
                     </td>
                     <td className="p-4 text-slate-400">{p.phone || "—"}</td>
                   </tr>
