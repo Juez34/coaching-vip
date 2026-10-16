@@ -10,6 +10,7 @@ export default function FindStudentsPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [students, setStudents] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -24,6 +25,7 @@ export default function FindStudentsPage() {
       router.replace("/login");
       return;
     }
+    setCurrentUserId(authData.user.id);
 
     const [{ data: studentData, error: studentError }, { data: requestData, error: requestError }] = await Promise.all([
       supabase.rpc("search_students", { search_text: term || null }),
@@ -86,8 +88,8 @@ export default function FindStudentsPage() {
         students.length === 0 ? <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400">Aucun élève disponible pour cette recherche.</div> :
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {students.map((student) => {
-            const pending = requests.some((item) => item.sender_id === student.id && item.receiver_id && item.status === "pending");
-            const requestToMe = requests.some((item) => item.sender_id === student.id && item.status === "pending");
+            const pending = requests.some((item) => item.sender_id === currentUserId && item.receiver_id === student.id && item.status === "pending");
+            const requestToMe = requests.some((item) => item.sender_id === student.id && item.receiver_id === currentUserId && item.status === "pending");
             return <article key={student.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/10 text-amber-400"><UserRound className="w-5 h-5" /></div>
