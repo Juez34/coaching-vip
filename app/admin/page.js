@@ -62,13 +62,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.clear();
-    sessionStorage.clear();
-    router.replace("/login");
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
@@ -108,21 +101,6 @@ export default function AdminDashboard() {
             <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-[10px] ${pendingCoachRequests.length > 0 ? "bg-orange-400 text-slate-950" : "bg-slate-700 text-slate-300"}`}>
               {pendingCoachRequests.length}
             </span>
-          </button>
-          <Link
-            href="/profile"
-            className="text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors shrink-0"
-          >
-            <User className="w-4 h-4 text-emerald-400" />
-            <span className="hidden sm:inline">Mon Profil</span>
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors shrink-0"
-            title="Déconnexion"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Déconnexion</span>
           </button>
         </div>
       </header>
