@@ -66,13 +66,6 @@ export default function CoachDashboardPage() {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.clear();
-    sessionStorage.clear();
-    router.replace("/login");
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
@@ -97,22 +90,6 @@ export default function CoachDashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/profile"
-            className="text-xs font-bold text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors"
-          >
-            <User className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">Mon Profil</span>
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="text-xs font-bold text-slate-400 hover:text-rose-400 bg-slate-950 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors cursor-pointer"
-            title="Déconnexion"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
       </div>
 
       {/* Liste des Élèves */}
