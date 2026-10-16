@@ -130,18 +130,19 @@ export default function AdminDashboard() {
                       {p.role === "coach" ? (
                         <span className="text-[10px] font-bold uppercase text-emerald-400">Coach activé</span>
                       ) : p.requested_role === "coach" ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-orange-400/10 text-orange-300 border-orange-400/20">
-                          Demande coach à valider
-                        </span>
-                      ) : p.requested_role === "coach" ? (
-                        <button
-                          type="button"
-                          onClick={() => handleApproveCoach(p)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-[10px] font-bold uppercase text-emerald-300 hover:bg-emerald-400/20"
-                        >
-                          <CheckCircle className="h-3 w-3" />
-                          Valider
-                        </button>
+                        <div className="flex flex-col items-start gap-2">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-orange-400/10 text-orange-300 border-orange-400/20">
+                            Demande coach à valider
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleApproveCoach(p)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-[10px] font-bold uppercase text-emerald-300 hover:bg-emerald-400/20"
+                          >
+                            <CheckCircle className="h-3 w-3" />
+                            Valider
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-slate-500">—</span>
                       )}
