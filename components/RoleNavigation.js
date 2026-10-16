@@ -114,7 +114,8 @@ export default function RoleNavigation({ role = "student" }) {
                   className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-amber-300 ${index ? "mt-1" : ""}`}
                 >
                   <Icon className="h-4 w-4 shrink-0 text-amber-400" />
-                  <span className="flex-1">{label}</span>\n                  {pendingCount > 0 && (href === "/coach/requests" || href === "/client/requests") && <span className="min-w-5 rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[10px] font-black text-slate-950">{pendingCount > 99 ? "99+" : pendingCount}</span>}
+                  <span className="flex-1">{label}</span>
+                  {pendingCount > 0 && (href === "/coach/requests" || href === "/client/requests") && <span className="min-w-5 rounded-full bg-amber-400 px-1.5 py-0.5 text-center text-[10px] font-black text-slate-950">{pendingCount > 99 ? "99+" : pendingCount}</span>}
                 </Link>
               ))}
               <div className="my-2 border-t border-slate-800" />
