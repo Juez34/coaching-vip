@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
-  Loader2, User, Users, ChevronRight, LogOut, ShieldCheck 
+  Loader2, User, Users, ChevronRight, ShieldCheck 
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
