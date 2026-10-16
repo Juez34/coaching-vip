@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { LogOut, User, Shield, Users, Dumbbell, Loader2, CheckCircle } from "lucide-react";
+import { LogOut, User, Shield, Users, Dumbbell, Loader2, CheckCircle, Bell, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -9,6 +9,14 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
+
+  const pendingCoachRequests = profiles.filter(
+    (profile) => profile.requested_role === "coach" && profile.role !== "coach"
+  );
+  const displayedProfiles = showPendingOnly
+    ? profiles.filter((profile) => profile.requested_role === "coach" && profile.role !== "coach")
+    : profiles;
 
   useEffect(() => {
     fetchAllProfiles();
@@ -72,8 +80,27 @@ export default function AdminDashboard() {
           <p className="text-sm text-slate-400 mt-0.5">Supervise l'ensemble des comptes, coaches, élèves et programmes.</p>
         </div>
 
-        {/* Menu utilisateur */}
-        <div className="flex items-center gap-2">
+        {/* Menu utilisateur et notification des demandes coach */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setShowPendingOnly((current) => !current);
+              document.getElementById("admin-accounts")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            aria-label={`${pendingCoachRequests.length} demande(s) coach en attente`}
+            className={`relative inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition-colors ${
+              pendingCoachRequests.length > 0
+                ? "border-orange-400/40 bg-orange-400/10 text-orange-200 hover:bg-orange-400/20"
+                : "border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            <Bell className="h-4 w-4" />
+            <span>Demandes coach</span>
+            <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-[10px] ${pendingCoachRequests.length > 0 ? "bg-orange-400 text-slate-950" : "bg-slate-700 text-slate-300"}`}>
+              {pendingCoachRequests.length}
+            </span>
+          </button>
           <Link
             href="/profile"
             className="text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 px-3.5 py-2 rounded-xl border border-slate-800 flex items-center gap-2 transition-colors shrink-0"
@@ -111,7 +138,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {profiles.map((p) => (
+                {displayedProfiles.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-800/50">
                     <td className="p-4 font-bold text-white">{p.full_name || "—"}</td>
                     <td className="p-4 text-slate-400">{p.email || p.id}</td>
@@ -150,7 +177,7 @@ export default function AdminDashboard() {
                     <td className="p-4 text-slate-400">{p.phone || "—"}</td>
                   </tr>
                 ))}
-              </tbody>
+                {displayedProfiles.length === 0 && (\n                  <tr>\n                    <td colSpan={5} className="p-8 text-center text-sm text-slate-500">\n                      {showPendingOnly ? "Aucune demande coach en attente." : "Aucun compte enregistré."}\n                    </td>\n                  </tr>\n                )}\n              </tbody>
             </table>
           </div>
         </div>
