@@ -1,6 +1,8 @@
 # Coaching VIP — audit sécurité et plan de correction
-Date : 2026-10-15
+Date initiale : 2026-10-15 — mise à jour : 2026-10-16
 Branche : audit/security-hardening-2026-10-15
+
+> **Mise à jour importante :** contrairement à la version initiale de cet audit, des corrections SQL ont maintenant été appliquées au projet Supabase `zohyxxwjihvthsylhmuv`, indiqué par l'utilisateur comme base de test non utilisée. La production Vercel et la branche GitHub `main` n'ont pas été modifiées. Voir [le compte rendu des changements de base](database-hardening-results-2026-10-16.md).
 
 ## Périmètre inspecté
 - Dépôt GitHub : `Juez34/coaching-vip`, branche `main`
@@ -44,8 +46,8 @@ La création de programme enregistre d'abord le programme, puis les exercices da
 6. Tester sur une base de développement : accès anonyme, client A vs client B, coach assigné vs coach non assigné, admin, création/édition/suppression de programme, journal de séance, inscription et suppression de profil.
 7. Exécuter le build et les tests sur une prévisualisation Vercel. Ne fusionner vers `main` ni appliquer de migration en production avant validation.
 
-## État
-Ce document ne change pas le comportement de l'application. Aucun correctif applicatif ou SQL n'a été appliqué à Supabase ou à la production Vercel.
+## État au 2026-10-16
+Les premières corrections SQL ont été appliquées à la base Supabase de test : politiques RLS remplacées, fonctions privilégiées durcies, contrôle du rôle de profil et restriction des modifications des journaux par les coaches. Les contrôles ciblés ont confirmé le blocage de plusieurs actions non autorisées. Le code applicatif n'est pas encore corrigé et doit être adapté/testé avant que les parcours d'inscription et les espaces de l'application soient considérés comme validés. Aucune modification n'a été fusionnée dans `main` et aucune production Vercel n'a été déployée.
 
 
 ## Audit complémentaire des accès UI
