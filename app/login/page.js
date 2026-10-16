@@ -321,6 +321,14 @@ export default function Login() {
             </div>
           </div>
 
+          {!isSignUp && (
+            <div className="text-right -mt-2">
+              <a href="/forgot-password" className="text-xs text-amber-400 hover:text-amber-300 font-medium">
+                Mot de passe oublié ?
+              </a>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Mot de passe *</label>
             <div className="relative">
