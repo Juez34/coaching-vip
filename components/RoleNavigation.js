@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
-import { Menu, X, LayoutDashboard, UserRound, Users, Dumbbell, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, LayoutDashboard, UserRound, Users, Dumbbell, LogOut, ChevronDown, Search, Inbox } from "lucide-react";
 
 const ROLE_ITEMS = {
   admin: [
@@ -14,11 +14,14 @@ const ROLE_ITEMS = {
   coach: [
     { label: "Mon tableau de bord", href: "/coach", icon: LayoutDashboard },
     { label: "Mes élèves", href: "/coach", icon: Users },
+    { label: "Demandes reçues", href: "/coach/requests", icon: Inbox },
     { label: "Mon profil", href: "/coach/profile", icon: UserRound },
   ],
   student: [
     { label: "Mon tableau de bord", href: "/client", icon: LayoutDashboard },
     { label: "Mes séances", href: "/client", icon: Dumbbell },
+    { label: "Trouver un coach", href: "/client/coaches", icon: Search },
+    { label: "Mes demandes", href: "/client/requests", icon: Inbox },
     { label: "Mon profil", href: "/client/profile", icon: UserRound },
   ],
 };
