@@ -48,8 +48,11 @@ export default function Login() {
       if (isSignUp) {
         const fullName = `${firstName} ${lastName}`.trim();
         
+        // Le rôle effectif reste toujours "client" à l'inscription publique.
+        // Une demande coach est enregistrée séparément et devra être validée par un admin.
         const profileData = {
-          role: role,
+          role: "client",
+          requested_role: role,
           first_name: firstName,
           last_name: lastName,
           full_name: fullName,
@@ -75,16 +78,34 @@ export default function Login() {
         if (error) throw error;
 
         if (data.user) {
-          await supabase.from("profiles").upsert([
+          const { error: profileError } = await supabase.from("profiles").upsert([
             {
               id: data.user.id,
               email: email,
               ...profileData
             },
           ]);
+          if (profileError) {
+            console.error("Erreur d'enregistrement du profil :", profileError);
+            throw new Error("Le compte a été créé, mais son profil n'a pas pu être enregistré. Contacte l'administrateur avant de réessayer.");
+          }
         }
 
-        alert("Compte créé avec succès ! Tu peux maintenant te connecter.");
+        if (role === "coach" && data.user) {
+          // L'envoi est géré côté serveur. Une erreur d'e-mail ne doit pas annuler l'inscription.
+          const { error: notificationError } = await supabase.functions.invoke("coach-email-notifications", {
+            body: { action: "coach-requested", user_id: data.user.id },
+          });
+          if (notificationError) {
+            console.error("Demande coach enregistrée, mais notification e-mail non envoyée :", notificationError);
+          }
+        }
+
+        alert(
+          role === "coach"
+            ? "Compte créé. Ta demande pour devenir coach a été enregistrée ; l'accès coach doit être validé par l'administrateur. Tu peux te connecter en attendant."
+            : "Compte créé avec succès ! Tu peux maintenant te connecter."
+        );
         setIsSignUp(false);
       } else {
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -299,6 +320,14 @@ export default function Login() {
               />
             </div>
           </div>
+
+          {!isSignUp && (
+            <div className="text-right -mt-2">
+              <a href="/forgot-password" className="text-xs text-amber-400 hover:text-amber-300 font-medium">
+                Mot de passe oublié ?
+              </a>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Mot de passe *</label>
