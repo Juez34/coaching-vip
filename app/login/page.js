@@ -452,6 +452,7 @@ export default function Login() {
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {confirmPassword && <p className={password === confirmPassword ? "mt-1 text-xs text-emerald-300" : "mt-1 text-xs text-red-300"}>{password === confirmPassword ? "Les mots de passe correspondent." : "Les mots de passe ne correspondent pas."}</p>}
             </div>
           )}
 
