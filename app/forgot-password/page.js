@@ -18,11 +18,17 @@ export default function ForgotPasswordPage() {
 
     try {
       const redirectTo = `${window.location.origin}/reset-password`;
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        setError("Saisis une adresse e-mail valide.");
+        return;
+      }
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
       if (resetError) throw resetError;
       setMessage("Si un compte correspond à cette adresse, un e-mail de réinitialisation va être envoyé. Vérifie aussi les courriers indésirables.");
     } catch (err) {
-      setError(err?.message || "Impossible d'envoyer le lien pour le moment.");
+      console.error("Erreur lors de la demande de réinitialisation :", err);
+      setError("Impossible d'envoyer le lien pour le moment. Vérifie ta connexion et réessaie dans quelques instants.");
     } finally {
       setLoading(false);
     }

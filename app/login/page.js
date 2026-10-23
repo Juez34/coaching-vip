@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { Dumbbell, ArrowRight, Lock, Mail, Phone, Calendar, Eye, EyeOff } from "lucide-react";
+import { Dumbbell, ArrowRight, Lock, Mail, Phone, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function Login() {
@@ -29,72 +29,88 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [role, setRole] = useState("client");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const handleAuth = async (e) => {
     e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
 
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setErrorMessage("Saisis une adresse e-mail valide.");
+      return;
+    }
     if (isSignUp) {
+      if (password.length < 8) {
+        setErrorMessage("Le mot de passe doit contenir au moins 8 caractères.");
+        return;
+      }
       if (password !== confirmPassword) {
-        alert("Les mots de passe ne correspondent pas.");
+        setErrorMessage("Les deux mots de passe ne correspondent pas.");
         return;
       }
       if (!agreeTerms) {
-        alert("Veuillez accepter les conditions d'utilisation.");
+        setErrorMessage("Veuillez accepter les conditions d'utilisation.");
+        return;
+      }
+      if (role === "client" && height && (!Number.isFinite(Number(height)) || Number(height) < 50 || Number(height) > 260)) {
+        setErrorMessage("Vérifie la taille indiquée (entre 50 et 260 cm).");
+        return;
+      }
+      if (role === "client" && weight && (!Number.isFinite(Number(weight)) || Number(weight) < 20 || Number(weight) > 350)) {
+        setErrorMessage("Vérifie le poids indiqué (entre 20 et 350 kg).");
+        return;
+      }
+      if (role === "coach" && yearsExperience && (!Number.isInteger(Number(yearsExperience)) || Number(yearsExperience) < 0 || Number(yearsExperience) > 80)) {
+        setErrorMessage("Les années d'expérience doivent être un nombre entier entre 0 et 80.");
         return;
       }
     }
 
     setLoading(true);
-
     try {
       if (isSignUp) {
-        const fullName = `${firstName} ${lastName}`.trim();
-        
+        const cleanFirstName = firstName.trim();
+        const cleanLastName = lastName.trim();
+        const fullName = `${cleanFirstName} ${cleanLastName}`.trim();
+
         // Le rôle effectif reste toujours "client" à l'inscription publique.
-        // Une demande coach est enregistrée séparément et devra être validée par un admin.
+        // Le rôle coach demandé n'accorde aucun droit tant qu'un administrateur ne l'a pas validé.
         const profileData = {
           role: "client",
           requested_role: role,
-          first_name: firstName,
-          last_name: lastName,
+          first_name: cleanFirstName,
+          last_name: cleanLastName,
           full_name: fullName,
-          phone: phone || null,
+          phone: phone.trim() || null,
         };
 
         if (role === "client") {
-          profileData.birth_date = birthDate || null; // Utilisation de birth_date
-          profileData.height = height ? parseFloat(height) : null;
-          profileData.weight = weight ? parseFloat(weight) : null;
+          profileData.birth_date = birthDate || null;
+          profileData.height = height ? Number(height) : null;
+          profileData.weight = weight ? Number(weight) : null;
         } else if (role === "coach") {
-          profileData.specialties = specialties || null;
-          profileData.certifications = certifications || null;
-          profileData.years_experience = yearsExperience ? parseInt(yearsExperience) : null;
-          profileData.bio = bio || null;
+          profileData.specialties = specialties.trim() || null;
+          profileData.certifications = certifications.trim() || null;
+          profileData.years_experience = yearsExperience ? Number(yearsExperience) : null;
+          profileData.bio = bio.trim() || null;
         }
 
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
           options: { data: profileData }
         });
         if (error) throw error;
-
-        if (data.user) {
-          const { error: profileError } = await supabase.from("profiles").upsert([
-            {
-              id: data.user.id,
-              email: email,
-              ...profileData
-            },
-          ]);
-          if (profileError) {
-            console.error("Erreur d'enregistrement du profil :", profileError);
-            throw new Error("Le compte a été créé, mais son profil n'a pas pu être enregistré. Contacte l'administrateur avant de réessayer.");
-          }
+        if (!data.user) {
+          throw new Error("Le compte n'a pas pu être créé. Réessaie dans quelques instants.");
         }
 
-        if (role === "coach" && data.user) {
-          // L'envoi est géré côté serveur. Une erreur d'e-mail ne doit pas annuler l'inscription.
+        // Le profil est créé par un trigger SQL sur auth.users. Cela fonctionne même
+        // lorsque Supabase exige une confirmation d'e-mail et ne crée pas de session.
+        if (role === "coach") {
           const { error: notificationError } = await supabase.functions.invoke("coach-email-notifications", {
             body: { action: "coach-requested", user_id: data.user.id },
           });
@@ -103,35 +119,77 @@ export default function Login() {
           }
         }
 
-        alert(
+        setSuccessMessage(
           role === "coach"
-            ? "Compte créé. Ta demande pour devenir coach a été enregistrée ; l'accès coach doit être validé par l'administrateur. Tu peux te connecter en attendant."
-            : "Compte créé avec succès ! Tu peux maintenant te connecter."
+            ? "Compte créé. Ta demande pour devenir coach est en attente de validation. Vérifie tes e-mails si une confirmation est demandée, puis connecte-toi."
+            : "Compte créé. Vérifie tes e-mails si une confirmation est demandée, puis connecte-toi."
         );
         setIsSignUp(false);
+        setPassword("");
+        setConfirmPassword("");
+        setAgreeTerms(false);
       } else {
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email,
+          email: normalizedEmail,
           password,
         });
-
         if (authError) throw authError;
-
-        if (authData?.user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", authData.user.id)
-            .maybeSingle();
-
-          const userRole = profile?.role || "client";
-          if (userRole === "admin") router.push("/admin");
-          else if (userRole === "coach") router.push("/coach");
-          else router.push("/client");
+        if (!authData?.user) {
+          throw new Error("Connexion impossible. Réessaie.");
         }
+
+        const { data: profile, error: profileReadError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", authData.user.id)
+          .maybeSingle();
+
+        if (profileReadError) {
+          await supabase.auth.signOut();
+          console.error("Impossible de lire le rôle du profil :", profileReadError);
+          throw new Error("Ton compte est reconnu, mais ton profil n'a pas pu être chargé. Réessaie ; si le problème persiste, contacte l'administrateur.");
+        }
+
+        let resolvedProfile = profile;
+        if (!resolvedProfile) {
+          // Répare un ancien compte sans profil, sans accorder de droits privilégiés.
+          const { error: repairError } = await supabase.from("profiles").insert({
+            id: authData.user.id,
+            email: normalizedEmail,
+            role: "client",
+            requested_role: "client",
+            full_name: authData.user.user_metadata?.full_name || null,
+          });
+          if (repairError) {
+            await supabase.auth.signOut();
+            console.error("Impossible de réparer le profil manquant :", repairError);
+            throw new Error("Ton compte existe, mais son profil est incomplet. Contacte l'administrateur pour le rétablir.");
+          }
+          resolvedProfile = { role: "client" };
+        }
+
+        const userRole = resolvedProfile.role || "client";
+        if (userRole === "admin") router.replace("/admin");
+        else if (userRole === "coach") router.replace("/coach");
+        else router.replace("/client");
       }
     } catch (err) {
-      alert(err.message || "Erreur d'authentification");
+      const rawMessage = String(err?.message || "").toLowerCase();
+      let friendlyMessage = "Une erreur est survenue. Vérifie ta connexion internet et réessaie.";
+      if (rawMessage.includes("invalid login credentials") || rawMessage.includes("invalid_credentials")) {
+        friendlyMessage = "Adresse e-mail ou mot de passe incorrect.";
+      } else if (rawMessage.includes("email not confirmed")) {
+        friendlyMessage = "Ton adresse e-mail n'est pas encore confirmée. Vérifie ta boîte de réception et tes courriers indésirables.";
+      } else if (rawMessage.includes("user already registered") || rawMessage.includes("already been registered")) {
+        friendlyMessage = "Un compte existe déjà avec cette adresse. Essaie de te connecter ou utilise « Mot de passe oublié ».";
+      } else if (rawMessage.includes("password should be at least") || (rawMessage.includes("password") && rawMessage.includes("characters"))) {
+        friendlyMessage = "Le mot de passe doit respecter les exigences de sécurité (au moins 8 caractères).";
+      } else if (rawMessage.includes("rate limit") || rawMessage.includes("too many requests")) {
+        friendlyMessage = "Trop de tentatives en peu de temps. Patiente quelques minutes avant de réessayer.";
+      } else if (err?.message && !/supabase|postgres|jwt|rls|row-level|fetch failed/i.test(err.message)) {
+        friendlyMessage = err.message;
+      }
+      setErrorMessage(friendlyMessage);
     } finally {
       setLoading(false);
     }
@@ -149,6 +207,9 @@ export default function Login() {
             {isSignUp ? `Création de compte (${role === 'coach' ? 'Coach' : 'Élève'})` : "Accède à ton espace personnel"}
           </p>
         </div>
+
+        {errorMessage && <p role="alert" className="mb-4 rounded-xl border border-red-900 bg-red-950/40 p-3 text-sm text-red-200">{errorMessage}</p>}
+        {successMessage && <p role="status" className="mb-4 rounded-xl border border-emerald-900 bg-emerald-950/40 p-3 text-sm text-emerald-200">{successMessage}</p>}
 
         <form onSubmit={handleAuth} className="space-y-4">
           {isSignUp && (
@@ -235,6 +296,9 @@ export default function Login() {
                       <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Taille (cm)</label>
                       <input
                         type="number"
+                        min="50"
+                        max="260"
+                        step="1"
                         placeholder="175"
                         value={height}
                         onChange={(e) => setHeight(e.target.value)}
@@ -245,6 +309,8 @@ export default function Login() {
                       <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Poids (kg)</label>
                       <input
                         type="number"
+                        min="20"
+                        max="350"
                         step="0.1"
                         placeholder="70"
                         value={weight}
@@ -286,6 +352,9 @@ export default function Login() {
                       <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Années d'expérience</label>
                       <input
                         type="number"
+                        min="0"
+                        max="80"
+                        step="1"
                         placeholder="5"
                         value={yearsExperience}
                         onChange={(e) => setYearsExperience(e.target.value)}
@@ -316,6 +385,7 @@ export default function Login() {
                 type="email"
                 placeholder="exemple@email.com"
                 value={email}
+                autoComplete="email"
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-amber-400"
                 required
@@ -342,6 +412,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-9 pr-11 text-sm text-white focus:outline-none focus:border-amber-400"
                 autoComplete={isSignUp ? "new-password" : "current-password"}
+                minLength={isSignUp ? 8 : undefined}
                 required
               />
               <button
@@ -368,6 +439,7 @@ export default function Login() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-9 pr-11 text-sm text-white focus:outline-none focus:border-amber-400"
                   autoComplete="new-password"
+                  minLength={8}
                   required
                 />
                 <button
@@ -380,6 +452,7 @@ export default function Login() {
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {confirmPassword && <p className={password === confirmPassword ? "mt-1 text-xs text-emerald-300" : "mt-1 text-xs text-red-300"}>{password === confirmPassword ? "Les mots de passe correspondent." : "Les mots de passe ne correspondent pas."}</p>}
             </div>
           )}
 
@@ -411,7 +484,8 @@ export default function Login() {
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => setIsSignUp(!isSignUp)}
+            disabled={loading}
+            onClick={() => { setIsSignUp(!isSignUp); setErrorMessage(""); setSuccessMessage(""); }}
             className="text-xs text-slate-400 hover:text-amber-400 font-medium transition-colors"
           >
             {isSignUp ? "Déjà un compte ? Se connecter" : "Pas encore de compte ? S'inscrire"}
