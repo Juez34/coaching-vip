@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import SessionCalendar, { SessionViewToggle } from "../../../../components/SessionCalendar";
 
 export default function CoachStudentDetailPage() {
   const params = useParams();
@@ -16,6 +17,7 @@ export default function CoachStudentDetailPage() {
   const [student, setStudent] = useState(null);
   const [programs, setPrograms] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [sessionView, setSessionView] = useState("list");
 
   useEffect(() => {
     if (studentId) {
@@ -50,7 +52,7 @@ export default function CoachStudentDetailPage() {
       // 3. Logs de l'élève pour connaître les réalisations et l'état de révision
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
-        .select("id, program_id, created_at, coach_reviewed")
+        .select("id, program_id, completed_at, created_at, coach_reviewed")
         .eq("user_id", studentId)
         .order("created_at", { ascending: false });
 
@@ -63,6 +65,30 @@ export default function CoachStudentDetailPage() {
       setLoading(false);
     }
   };
+
+  const calendarEvents = [
+    ...programs.map((program) => ({
+      id: `program-${program.id}`,
+      title: program.title,
+      date: program.created_at,
+      kind: "assigned",
+      label: "Programme créé le",
+      href: logs.some((log) => log.program_id === program.id)
+        ? `/coach/history/program/${program.id}`
+        : `/coach/programs/${program.id}/edit`,
+    })),
+    ...logs.map((log) => {
+      const program = programs.find((item) => item.id === log.program_id);
+      return {
+        id: `workout-${log.id}`,
+        title: program?.title || "Séance libre",
+        date: log.completed_at || log.created_at,
+        kind: "completed",
+        label: "Séance réalisée le",
+        href: log.program_id ? `/coach/history/program/${log.program_id}` : `/coach/history/${log.id}`,
+      };
+    }),
+  ];
 
   const handleDeleteProgram = async (e, programId) => {
     e.preventDefault();
@@ -133,17 +159,22 @@ export default function CoachStudentDetailPage() {
 
       {/* Section des Séances */}
       <div className="space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-          <Dumbbell className="w-4 h-4 text-amber-400" />
-          <span>Séances attribuées ({programs.length})</span>
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <Dumbbell className="w-4 h-4 text-amber-400" />
+            <span>Séances attribuées ({programs.length})</span>
+          </h2>
+          <SessionViewToggle view={sessionView} onChange={setSessionView} />
+        </div>
 
-        {programs.length === 0 ? (
+        {programs.length === 0 && sessionView === "list" ? (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">
             Aucune séance assignée à cet élève pour le moment.
           </div>
         ) : (
-          <div className="space-y-4">
+          sessionView === "calendar" ? (
+            <SessionCalendar events={calendarEvents} />
+          ) : <div className="space-y-4">
             {programs.map((prog) => {
               // Récupérer les logs liés à ce programme
               const programLogs = logs.filter((l) => l.program_id === prog.id);

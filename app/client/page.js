@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import SessionCalendar, { SessionViewToggle } from "../../components/SessionCalendar";
 
 export default function ClientDashboardPage() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function ClientDashboardPage() {
   const [userProfile, setUserProfile] = useState(null);
   const [programs, setPrograms] = useState([]);
   const [workoutLogs, setWorkoutLogs] = useState([]);
+  const [sessionView, setSessionView] = useState("list");
 
   useEffect(() => {
     fetchClientData();
@@ -46,7 +48,7 @@ export default function ClientDashboardPage() {
 
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
-        .select("id, program_id, created_at, coach_reviewed")
+        .select("id, program_id, completed_at, created_at, coach_reviewed")
         .eq("user_id", user.id);
 
       if (logsErr) throw logsErr;
@@ -58,6 +60,30 @@ export default function ClientDashboardPage() {
       setLoading(false);
     }
   };
+
+  const calendarEvents = [
+    ...programs.map((program) => ({
+      id: `program-${program.id}`,
+      title: program.title,
+      date: program.created_at,
+      kind: "assigned",
+      label: "Programme créé le",
+      href: workoutLogs.some((log) => log.program_id === program.id)
+        ? `/client/history/${program.id}`
+        : `/client/workout/${program.id}`,
+    })),
+    ...workoutLogs.map((log) => {
+      const program = programs.find((item) => item.id === log.program_id);
+      return {
+        id: `workout-${log.id}`,
+        title: program?.title || "Séance libre",
+        date: log.completed_at || log.created_at,
+        kind: "completed",
+        label: "Séance réalisée le",
+        href: log.program_id ? `/client/history/${log.program_id}` : "/client",
+      };
+    }),
+  ];
 
   if (loading) {
     return (
@@ -95,17 +121,22 @@ export default function ClientDashboardPage() {
 
       {/* Section des Séances */}
       <div className="space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-          <Dumbbell className="w-4 h-4 text-amber-400" />
-          <span>Vos séances d'entraînement ({programs.length})</span>
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <Dumbbell className="w-4 h-4 text-amber-400" />
+            <span>Vos séances d'entraînement ({programs.length})</span>
+          </h2>
+          <SessionViewToggle view={sessionView} onChange={setSessionView} />
+        </div>
 
-        {programs.length === 0 ? (
+        {programs.length === 0 && sessionView === "list" ? (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">
             Aucun programme assigné pour le moment. Votre coach prépare votre séance !
           </div>
         ) : (
-          <div className="space-y-4">
+          sessionView === "calendar" ? (
+            <SessionCalendar events={calendarEvents} />
+          ) : <div className="space-y-4">
             {programs.map((prog) => {
               const programLogs = workoutLogs.filter((l) => l.program_id === prog.id);
               const isDone = programLogs.length > 0;
