@@ -62,12 +62,12 @@ export default function ClientDashboardPage() {
   };
 
   const calendarEvents = [
-    ...programs.map((program) => ({
+    ...programs.filter((program) => program.scheduled_at).map((program) => ({
       id: `program-${program.id}`,
       title: program.title,
-      date: program.created_at,
+      date: program.scheduled_at,
       kind: "assigned",
-      label: "Programme créé le",
+      label: "Séance prévue le",
       href: workoutLogs.some((log) => log.program_id === program.id)
         ? `/client/history/${program.id}`
         : `/client/workout/${program.id}`,
@@ -84,6 +84,11 @@ export default function ClientDashboardPage() {
       };
     }),
   ];
+  const orderedPrograms = [...programs].sort((a, b) => {
+    const aDate = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+    const bDate = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+    return aDate - bDate || new Date(b.created_at) - new Date(a.created_at);
+  });
 
   if (loading) {
     return (
@@ -137,7 +142,7 @@ export default function ClientDashboardPage() {
           sessionView === "calendar" ? (
             <SessionCalendar events={calendarEvents} />
           ) : <div className="space-y-4">
-            {programs.map((prog) => {
+            {orderedPrograms.map((prog) => {
               const programLogs = workoutLogs.filter((l) => l.program_id === prog.id);
               const isDone = programLogs.length > 0;
               const exercisesList = prog.exercises || [];

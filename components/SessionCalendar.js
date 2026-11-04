@@ -50,10 +50,15 @@ export default function SessionCalendar({ events }) {
     setSelectedDate(localDateKey(nextMonth));
   };
 
+  const formatEventTime = (value) => {
+    if (!value) return null;
+    return new Date(value).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  };
+
   return (
     <section className="space-y-4" aria-label="Calendrier des séances">
       <p className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-xs leading-relaxed text-slate-400">
-        Le calendrier affiche les dates disponibles : création d’un programme et réalisation d’une séance. Les programmes ne contiennent pas encore de date planifiée.
+        Les séances prévues apparaissent à leur date programmée. Les séances réalisées apparaissent à leur date de réalisation.
       </p>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
@@ -85,13 +90,21 @@ export default function SessionCalendar({ events }) {
                   setSelectedDate(key);
                   if (!inMonth) setMonth(new Date(day.getFullYear(), day.getMonth(), 1, 12));
                 }}
-                className={`min-h-12 w-full rounded-lg border p-1 text-center text-xs transition-colors sm:min-h-14 ${selectedDate === key ? "border-amber-400 bg-amber-400/10 text-amber-300" : "border-transparent hover:border-slate-700"} ${inMonth ? "text-slate-200" : "text-slate-600"}`}
+                className={`flex min-h-[5.25rem] w-full flex-col items-stretch gap-1 rounded-lg border p-1 text-left text-xs transition-colors sm:min-h-28 sm:p-1.5 ${selectedDate === key ? "border-amber-400 bg-amber-400/10" : "border-transparent hover:border-slate-700"} ${inMonth ? "text-slate-200" : "text-slate-600"}`}
               >
-                <span>{day.getDate()}</span>
-                {dayEvents.length > 0 && <span className="mx-auto mt-1 flex w-fit items-center gap-0.5" aria-hidden="true">
-                  {dayEvents.slice(0, 3).map((event) => <span key={event.id} className={`h-1.5 w-1.5 rounded-full ${event.kind === "completed" ? "bg-emerald-400" : "bg-amber-400"}`} />)}
-                  {dayEvents.length > 3 && <span className="text-[9px]">+</span>}
-                </span>}
+                <span className={`self-center font-semibold ${selectedDate === key ? "text-amber-300" : ""}`}>{day.getDate()}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  {dayEvents.slice(0, 2).map((event) => (
+                    <span
+                      key={event.id}
+                      title={event.title}
+                      className={`block w-full truncate rounded px-1 py-0.5 text-[8px] font-semibold leading-tight sm:text-[10px] ${event.kind === "completed" ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-200"}`}
+                    >
+                      {event.title}
+                    </span>
+                  ))}
+                  {dayEvents.length > 2 && <span className="text-center text-[8px] text-slate-400 sm:text-[10px]">+{dayEvents.length - 2}</span>}
+                </span>
               </button>
               </div>
             );
@@ -99,7 +112,7 @@ export default function SessionCalendar({ events }) {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-slate-400">
-          <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-400" />Programme créé</span>
+          <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-400" />Séance prévue</span>
           <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-400" />Séance réalisée</span>
         </div>
       </div>
@@ -116,9 +129,7 @@ export default function SessionCalendar({ events }) {
             <span>
               <span className="block text-sm font-bold text-white">{event.title}</span>
               <span className={`mt-1 block text-[10px] font-bold uppercase ${event.kind === "completed" ? "text-emerald-400" : "text-amber-400"}`}>{event.label}</span>
-              <span className="mt-1 block text-[10px] text-slate-500">
-                {new Date(event.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-              </span>
+              {formatEventTime(event.date) && <span className="mt-1 block text-[10px] text-slate-500">{formatEventTime(event.date)}</span>}
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
           </Link>

@@ -4,6 +4,7 @@ import { supabase } from "../../../../../lib/supabase";
 import { ArrowLeft, Loader2, Plus, Trash2, Dumbbell, Save, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { localDateTimeInputValue } from "../../../../../lib/sessionCalendar";
 
 function EditProgramForm() {
   const { id: programId } = useParams();
@@ -13,6 +14,7 @@ function EditProgramForm() {
   const [saving, setSaving] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [title, setTitle] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
   const [studentId, setStudentId] = useState(null);
   const [exercises, setExercises] = useState([]);
 
@@ -48,6 +50,7 @@ function EditProgramForm() {
       if (programErr) throw programErr;
 
       setTitle(program.title);
+      setScheduledAt(localDateTimeInputValue(program.scheduled_at));
       setStudentId(program.student_id);
 
       // Tri des exercices par order_index ou id
@@ -105,7 +108,10 @@ function EditProgramForm() {
       // 1. Mise à jour du titre du programme
       const { error: updateErr } = await supabase
         .from("programs")
-        .update({ title: title.trim() })
+        .update({
+          title: title.trim(),
+          scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        })
         .eq("id", programId);
 
       if (updateErr) throw updateErr;
@@ -199,6 +205,19 @@ function EditProgramForm() {
                 required
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-400"
               />
+            </div>
+            <div>
+              <label htmlFor="scheduled-at" className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                Date et heure prévues <span className="font-normal normal-case text-slate-500">(facultatif)</span>
+              </label>
+              <input
+                id="scheduled-at"
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-400"
+              />
+              <p className="mt-1.5 text-[11px] text-slate-500">La séance apparaîtra dans l’agenda à cette date.</p>
             </div>
           </div>
 
