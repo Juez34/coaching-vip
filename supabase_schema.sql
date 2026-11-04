@@ -16,6 +16,7 @@ ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'completed';
 -- Table PROFILES
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  avatar_url TEXT,
   email TEXT,
   role TEXT DEFAULT 'client',
   first_name TEXT,
