@@ -14,7 +14,7 @@ export default function ClientDashboardPage() {
   const [userProfile, setUserProfile] = useState(null);
   const [programs, setPrograms] = useState([]);
   const [workoutLogs, setWorkoutLogs] = useState([]);
-  const [sessionView, setSessionView] = useState("list");
+  const [sessionView, setSessionView] = useState("calendar");
 
   useEffect(() => {
     fetchClientData();
@@ -80,6 +80,7 @@ export default function ClientDashboardPage() {
         title: program?.title || "Séance libre",
         date: log.completed_at || log.created_at,
         kind: "completed",
+        coachReviewed: log.coach_reviewed,
         exercises: program?.exercises || [],
         label: "Séance réalisée le",
         href: log.program_id ? `/client/history/${log.program_id}` : "/client",
@@ -142,7 +143,10 @@ export default function ClientDashboardPage() {
           </div>
         ) : (
           sessionView === "calendar" ? (
-            <SessionCalendar events={calendarEvents} />
+            <>
+              {programs.length === 0 && workoutLogs.length === 0 && <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">Aucun programme assigné pour le moment. Votre coach prépare votre séance !</div>}
+              <SessionCalendar events={calendarEvents} />
+            </>
           ) : <div className="space-y-4">
             {orderedPrograms.map((prog) => {
               const programLogs = workoutLogs.filter((l) => l.program_id === prog.id);
