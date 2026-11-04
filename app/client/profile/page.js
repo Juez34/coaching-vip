@@ -4,7 +4,7 @@ import { supabase } from "../../../lib/supabase";
 import Avatar from "../../../components/Avatar";
 import { Camera, Loader2, ArrowLeft, Save, User } from "lucide-react";
 import Link from "next/link";
-import { PERSONAL_RECORD_EXERCISES } from "../../../lib/personalRecords";
+import { getPersonalRecord, PERSONAL_RECORD_EXERCISES } from "../../../lib/personalRecords";
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -203,8 +203,8 @@ export default function ProfilePage() {
                         min="0"
                         step="0.5"
                         inputMode="decimal"
-                        value={personalRecords[lift.key]?.weight || ""}
-                        onChange={(e) => setPersonalRecords((current) => ({ ...current, [lift.key]: { ...current[lift.key], weight: e.target.value } }))}
+                        value={getPersonalRecord(personalRecords, lift.key)?.weight || ""}
+                        onChange={(e) => setPersonalRecords((current) => ({ ...current, [lift.key]: { ...getPersonalRecord(current, lift.key), weight: e.target.value } }))}
                         className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-white focus:border-amber-400 focus:outline-none"
                         placeholder="—"
                       />
@@ -216,8 +216,8 @@ export default function ProfilePage() {
                         min="1"
                         step="1"
                         inputMode="numeric"
-                        value={personalRecords[lift.key]?.reps || ""}
-                        onChange={(e) => setPersonalRecords((current) => ({ ...current, [lift.key]: { ...current[lift.key], reps: e.target.value } }))}
+                        value={getPersonalRecord(personalRecords, lift.key)?.reps || ""}
+                        onChange={(e) => setPersonalRecords((current) => ({ ...current, [lift.key]: { ...getPersonalRecord(current, lift.key), reps: e.target.value } }))}
                         className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-white focus:border-amber-400 focus:outline-none"
                         placeholder="—"
                       />
