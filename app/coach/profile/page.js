@@ -133,6 +133,8 @@ export default function CoachProfilePage() {
         </p>
       </div>
 
+      <Link href="/change-password" className="mb-6 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm font-bold text-white hover:border-amber-400/60 hover:text-amber-300"><span>Modifier mon mot de passe</span><span aria-hidden="true">→</span></Link>
+
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
         {/* Photo de profil */}
         <div className="flex flex-col items-center justify-center gap-3">
