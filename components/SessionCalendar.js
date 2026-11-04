@@ -42,29 +42,36 @@ function dateTitle(date, options) {
 
 function ResultSummary({ log, exercises }) {
   const completed = log.completed_sets || {};
-  const performances = log.actual_performances || {};
-  const completedKeys = Object.keys(completed).filter((key) => completed[key] === true);
+  let rawPerformances = log.actual_performances || [];
+  if (typeof rawPerformances === "string") {
+    try { rawPerformances = JSON.parse(rawPerformances); } catch { rawPerformances = []; }
+  }
+  const performanceList = Array.isArray(rawPerformances) ? rawPerformances : null;
   const totalSets = (exercises || []).reduce((sum, exercise) => sum + Number(exercise.sets || 1), 0);
   const duration = Number(log.duration_seconds || 0);
-  const bestSets = completedKeys.slice(0, 4).map((key) => {
-    const splitIndex = key.lastIndexOf("-");
-    const exerciseId = key.slice(0, splitIndex);
-    const setIndex = key.slice(splitIndex + 1);
-    const exercise = exercises?.find((item) => String(item.id) === exerciseId);
-    const performance = performances[key] || {};
-    return {
-      key,
-      label: exercise?.name || "Série",
-      value: [performance.reps ? `${performance.reps} reps` : null, performance.weight ? `${performance.weight} kg` : null].filter(Boolean).join(" · "),
-      set: Number(setIndex) + 1,
-    };
-  });
+  const bestSets = [];
+  for (const exercise of exercises || []) {
+    const savedExercise = performanceList?.find((item) => String(item.exercise_id) === String(exercise.id) || item.name === exercise.name);
+    for (let index = 0; index < Number(exercise.sets || 1); index += 1) {
+      const savedSet = savedExercise?.sets?.[index] || {};
+      const isCompleted = completed[`${exercise.id}-${index}`] === true || savedSet.completed === true;
+      if (!isCompleted) continue;
+      const legacyPerformance = !performanceList ? rawPerformances[`${exercise.id}-${index}`] || {} : {};
+      bestSets.push({
+        key: `${exercise.id}-${index}`,
+        label: exercise.name || "Série",
+        value: [savedSet.reps || legacyPerformance.reps ? `${savedSet.reps || legacyPerformance.reps} reps` : null, savedSet.weight || legacyPerformance.weight ? `${savedSet.weight || legacyPerformance.weight} kg` : null].filter(Boolean).join(" · "),
+        set: index + 1,
+      });
+    }
+  }
+  const completedCount = bestSets.length || Object.values(completed).filter(Boolean).length;
 
   return (
     <div className="mt-3 rounded-lg border border-emerald-400/15 bg-emerald-400/5 p-2.5" aria-label="Résultats de la séance">
       <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-300">
-        Résultats · {completedKeys.length}/{totalSets || completedKeys.length} séries
-        {duration > 0 && ` · ${Math.floor(duration / 60)} min`}
+        Résultats · {completedCount}/{totalSets || completedCount} séries
+        {duration >= 60 ? ` · ${Math.floor(duration / 60)} min` : duration > 0 ? ` · ${duration} s` : ""}
       </p>
       {bestSets.length > 0 && (
         <ul className="mt-1.5 space-y-1 text-[11px] text-slate-300">
