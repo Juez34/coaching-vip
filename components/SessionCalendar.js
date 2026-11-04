@@ -174,13 +174,13 @@ export default function SessionCalendar({ events, isCoach = false }) {
     </div>
   );
 
-  const renderDay = (day) => {
+  const renderDay = (day, compact = false) => {
     const key = localDateKey(day);
     const dayEvents = eventsByDay.get(key) || [];
     return (
       <section key={key} className="min-w-0 space-y-2" aria-label={dateTitle(day, { dateStyle: "full" })}>
         <h4 className="border-b border-slate-800 pb-2 text-xs font-bold uppercase tracking-wide text-slate-300 sm:text-sm">{dateTitle(day, { weekday: "long", day: "numeric", month: "long" })}</h4>
-        {dayEvents.length ? <div className="grid gap-2 sm:grid-cols-2">{dayEvents.map((event) => <SessionCard key={event.id} event={event} isCoach={isCoach} />)}</div> : <p className="rounded-xl border border-dashed border-slate-800 p-4 text-xs text-slate-500">Aucune séance prévue ou réalisée.</p>}
+        {dayEvents.length ? <div className={`grid gap-2 ${compact ? "" : "sm:grid-cols-2"}`}>{dayEvents.map((event) => <SessionCard key={event.id} event={event} isCoach={isCoach} />)}</div> : <p className="rounded-xl border border-dashed border-slate-800 p-4 text-xs text-slate-500">Aucune séance prévue ou réalisée.</p>}
       </section>
     );
   };
@@ -207,7 +207,13 @@ export default function SessionCalendar({ events, isCoach = false }) {
         </div>
 
         {mode === "month" && renderMonth()}
-        {mode === "week" && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{weekDays.map(renderDay)}</div>}
+        {mode === "week" && (
+          <div className="overflow-x-auto pb-2" aria-label="Semaine, une colonne par jour">
+            <div className="grid min-w-[840px] grid-cols-7 gap-2">
+              {weekDays.map((day) => renderDay(day, true))}
+            </div>
+          </div>
+        )}
         {mode === "day" && renderDay(selected)}
 
         {mode === "month" && (
