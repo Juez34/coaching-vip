@@ -4,6 +4,7 @@ import { supabase } from "../../../lib/supabase";
 import Avatar from "../../../components/Avatar";
 import { Camera, Loader2, ArrowLeft, Save, User } from "lucide-react";
 import Link from "next/link";
+import { PERSONAL_RECORD_EXERCISES } from "../../../lib/personalRecords";
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -13,6 +14,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [personalRecords, setPersonalRecords] = useState({});
 
   useEffect(() => {
     getProfile();
@@ -35,6 +37,7 @@ export default function ProfilePage() {
         if (profile) {
           setFullName(profile.full_name || "");
           setAvatarUrl(profile.avatar_url || "");
+          setPersonalRecords(profile.personal_records || {});
         }
       }
     } catch (err) {
@@ -89,7 +92,7 @@ export default function ProfilePage() {
       setSaving(true);
       const { error } = await supabase
         .from("profiles")
-        .update({ full_name: fullName })
+        .update({ full_name: fullName, personal_records: personalRecords })
         .eq("id", user.id);
 
       if (error) throw error;
@@ -182,6 +185,48 @@ export default function ProfilePage() {
               className="w-full bg-slate-950/50 border border-slate-850 rounded-xl p-3 text-xs text-slate-500 cursor-not-allowed"
             />
           </div>
+
+          <section className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4" aria-labelledby="personal-records-heading">
+            <div>
+              <h2 id="personal-records-heading" className="text-xs font-bold uppercase tracking-wide text-amber-300">Mes records personnels</h2>
+              <p className="mt-1 text-[11px] text-slate-500">Renseigne tes meilleures performances sur les exercices principaux.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {PERSONAL_RECORD_EXERCISES.map((lift) => (
+                <div key={lift.key} className="rounded-xl border border-slate-800 p-3">
+                  <h3 className="mb-2 text-xs font-bold text-white">{lift.label}</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-[10px] text-slate-500">
+                      Poids (kg)
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        inputMode="decimal"
+                        value={personalRecords[lift.key]?.weight || ""}
+                        onChange={(e) => setPersonalRecords((current) => ({ ...current, [lift.key]: { ...current[lift.key], weight: e.target.value } }))}
+                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+                        placeholder="—"
+                      />
+                    </label>
+                    <label className="text-[10px] text-slate-500">
+                      Répétitions
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        value={personalRecords[lift.key]?.reps || ""}
+                        onChange={(e) => setPersonalRecords((current) => ({ ...current, [lift.key]: { ...current[lift.key], reps: e.target.value } }))}
+                        className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+                        placeholder="—"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
           <button
             type="submit"
