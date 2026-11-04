@@ -13,6 +13,19 @@ export default function Home() {
   useEffect(() => {
     const checkUser = async () => {
       try {
+      const queryParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const isPasswordRecovery = queryParams.has("code")
+        || queryParams.get("type") === "recovery"
+        || hashParams.get("type") === "recovery"
+        || queryParams.has("error_description")
+        || hashParams.has("error_description");
+      if (isPasswordRecovery) {
+        router.replace(`/reset-password${window.location.search}${window.location.hash}`);
+        return;
+      }
+
+
         const { data: { user } } = await supabase.auth.getUser();
 
         if (user) {
