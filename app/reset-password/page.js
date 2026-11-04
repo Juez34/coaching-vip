@@ -35,7 +35,26 @@ export default function ResetPasswordPage() {
     supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!active) return;
       if (sessionError) setError("Impossible de vérifier le lien. Demande un nouveau lien de réinitialisation.");
-      if (data.session) setHasSession(true);
+      if (data.session) {
+        setHasSession(true);
+        setChecking(false);
+        return;
+      }
+
+      const recoveryCode = new URLSearchParams(window.location.search).get("code");
+      if (recoveryCode) {
+        return supabase.auth.exchangeCodeForSession(recoveryCode).then(({ data: exchanged, error: exchangeError }) => {
+          if (!active) return;
+          if (exchangeError || !exchanged.session) {
+            setError("Ce lien de réinitialisation est invalide ou a expiré. Demande un nouveau lien.");
+          } else {
+            setHasSession(true);
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+          setChecking(false);
+        });
+      }
+
       setChecking(false);
     }).catch(() => {
       if (active) {
