@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   birth_date DATE,
   height NUMERIC,
   weight NUMERIC,
+  personal_records JSONB NOT NULL DEFAULT '{}'::JSONB,
   coach_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   specialties TEXT,
   certifications TEXT,
