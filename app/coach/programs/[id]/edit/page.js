@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2, Plus, Trash2, Dumbbell, Save, AlertCircle } from "l
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { localDateInputValue } from "../../../../../lib/sessionCalendar";
+import DatePickerField from "../../../../../components/DatePickerField";
 
 function EditProgramForm() {
   const { id: programId } = useParams();
@@ -207,16 +208,15 @@ function EditProgramForm() {
               />
             </div>
             <div>
-              <label htmlFor="scheduled-at" className="block text-xs font-bold uppercase text-slate-400 mb-2">
+              <p className="block text-xs font-bold uppercase text-slate-400 mb-2">
                 Date prévue <span className="font-normal normal-case text-slate-500">(facultatif)</span>
-              </label>
-              <input
+              </p>
+              <DatePickerField
                 id="scheduled-at"
-                type="date"
+                label="Date prévue"
                 value={scheduledDate}
-                onClick={(e) => e.currentTarget.showPicker?.()}
-                onChange={(e) => setScheduledDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-amber-400"
+                onChange={setScheduledDate}
+                placeholder="Choisir une date"
               />
               <p className="mt-1.5 text-[11px] text-slate-500">La séance apparaîtra dans l’agenda à cette date.</p>
             </div>
