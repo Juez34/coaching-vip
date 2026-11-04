@@ -127,6 +127,8 @@ export default function ProfilePage() {
         <p className="text-xs text-slate-400 mt-1">Gérez vos informations personnelles et votre photo de profil.</p>
       </div>
 
+      <Link href="/change-password" className="mb-6 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm font-bold text-white hover:border-amber-400/60 hover:text-amber-300"><span>Modifier mon mot de passe</span><span aria-hidden="true">→</span></Link>
+
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
         {/* Zone Photo de profil avec bouton d'upload overlay */}
         <div className="flex flex-col items-center justify-center gap-3">
