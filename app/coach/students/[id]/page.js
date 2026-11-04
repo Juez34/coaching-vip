@@ -52,7 +52,7 @@ export default function CoachStudentDetailPage() {
       // 3. Logs de l'élève pour connaître les réalisations et l'état de révision
       const { data: logsData, error: logsErr } = await supabase
         .from("workout_logs")
-        .select("id, program_id, completed_at, created_at, coach_reviewed")
+        .select("*")
         .eq("user_id", studentId)
         .order("created_at", { ascending: false });
 
@@ -72,6 +72,7 @@ export default function CoachStudentDetailPage() {
       title: program.title,
       date: program.scheduled_at,
       kind: "assigned",
+      exercises: program.exercises || [],
       label: "Séance prévue le",
       href: logs.some((log) => log.program_id === program.id)
         ? `/coach/history/program/${program.id}`
@@ -84,6 +85,8 @@ export default function CoachStudentDetailPage() {
         title: program?.title || "Séance libre",
         date: log.completed_at || log.created_at,
         kind: "completed",
+        exercises: program?.exercises || [],
+        log,
         label: "Séance réalisée le",
         href: log.program_id ? `/coach/history/program/${log.program_id}` : `/coach/history/${log.id}`,
       };
@@ -178,7 +181,7 @@ export default function CoachStudentDetailPage() {
           </div>
         ) : (
           sessionView === "calendar" ? (
-            <SessionCalendar events={calendarEvents} />
+            <SessionCalendar events={calendarEvents} isCoach />
           ) : <div className="space-y-4">
             {orderedPrograms.map((prog) => {
               // Récupérer les logs liés à ce programme
