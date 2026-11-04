@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight, Dumbbell } from "lucide-react";
 import { getMonthGrid, localDateKey } from "../lib/sessionCalendar";
@@ -92,7 +92,7 @@ function SessionCard({ event, isCoach }) {
         <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${completed ? "bg-emerald-400" : "bg-amber-400"}`} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-bold text-white sm:text-sm">{event.title}</p>
-          <p className={`mt-0.5 text-[10px] font-bold uppercase ${completed ? "text-emerald-400" : "text-amber-300"}`}>{completed ? "Réalisée" : "Prévue"}{event.date && ` · ${new Date(event.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`}</p>
+          <p className={`mt-0.5 text-[10px] font-bold uppercase ${completed ? "text-emerald-400" : "text-amber-300"}`}>{completed ? "Réalisée" : "Prévue"}{completed && event.date && ` · ${new Date(event.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`}</p>
         </div>
       </div>
 
@@ -108,7 +108,7 @@ function SessionCard({ event, isCoach }) {
   );
 }
 
-export default function SessionCalendar({ events, isCoach = false }) {
+export default function SessionCalendar({ events, isCoach = false, onSelectedDateChange }) {
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(() => localDateKey(today));
   const [mode, setMode] = useState("month");
@@ -131,15 +131,22 @@ export default function SessionCalendar({ events, isCoach = false }) {
     return grouped;
   }, [events]);
   const selectedEvents = eventsByDay.get(selectedDate) || [];
+  const selectDate = (key) => {
+    setSelectedDate(key);
+    onSelectedDateChange?.(key);
+  };
+  useEffect(() => {
+    onSelectedDateChange?.(selectedDate);
+  }, [selectedDate, onSelectedDateChange]);
 
   const movePeriod = (amount) => {
     const next = new Date(selected);
     if (mode === "month") next.setMonth(next.getMonth() + amount);
     if (mode === "week") next.setDate(next.getDate() + amount * 7);
     if (mode === "day") next.setDate(next.getDate() + amount);
-    setSelectedDate(localDateKey(next));
+    selectDate(localDateKey(next));
   };
-  const goToday = () => setSelectedDate(localDateKey(new Date()));
+  const goToday = () => selectDate(localDateKey(new Date()));
   const heading = mode === "month"
     ? dateTitle(selected, { month: "long", year: "numeric" })
     : mode === "week"
@@ -159,7 +166,7 @@ export default function SessionCalendar({ events, isCoach = false }) {
               type="button"
               aria-label={`${dateTitle(day, { dateStyle: "full" })}, ${dayEvents.length} événement${dayEvents.length > 1 ? "s" : ""}`}
               aria-pressed={selectedDate === key}
-              onClick={() => setSelectedDate(key)}
+              onClick={() => selectDate(key)}
               className={`flex min-h-[5.25rem] w-full flex-col items-stretch gap-1 rounded-lg border p-1 text-left text-xs transition-colors sm:min-h-28 sm:p-1.5 ${selectedDate === key ? "border-amber-400 bg-amber-400/10" : "border-transparent hover:border-slate-700"} ${inMonth ? "text-slate-200" : "text-slate-600"}`}
             >
               <span className={`self-center font-semibold ${selectedDate === key ? "text-amber-300" : ""}`}>{day.getDate()}</span>
@@ -179,7 +186,11 @@ export default function SessionCalendar({ events, isCoach = false }) {
     const dayEvents = eventsByDay.get(key) || [];
     return (
       <section key={key} className="min-w-0 space-y-2" aria-label={dateTitle(day, { dateStyle: "full" })}>
-        <h4 className="border-b border-slate-800 pb-2 text-xs font-bold uppercase tracking-wide text-slate-300 sm:text-sm">{dateTitle(day, { weekday: "long", day: "numeric", month: "long" })}</h4>
+        <h4 className="border-b border-slate-800 pb-2">
+          <button type="button" onClick={() => selectDate(key)} aria-pressed={selectedDate === key} className={`text-left text-[10px] font-bold uppercase tracking-wide sm:text-xs ${selectedDate === key ? "text-amber-300" : "text-slate-300"}`}>
+            {dateTitle(day, { weekday: "long", day: "numeric", month: "long" })}
+          </button>
+        </h4>
         {dayEvents.length ? <div className={`grid gap-2 ${compact ? "" : "sm:grid-cols-2"}`}>{dayEvents.map((event) => <SessionCard key={event.id} event={event} isCoach={isCoach} />)}</div> : <p className="rounded-xl border border-dashed border-slate-800 p-4 text-xs text-slate-500">Aucune séance prévue ou réalisée.</p>}
       </section>
     );

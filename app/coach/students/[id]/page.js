@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import SessionCalendar, { SessionViewToggle } from "../../../../components/SessionCalendar";
+import { PERSONAL_RECORD_EXERCISES, hasPersonalRecord } from "../../../../lib/personalRecords";
 
 export default function CoachStudentDetailPage() {
   const params = useParams();
@@ -18,6 +19,7 @@ export default function CoachStudentDetailPage() {
   const [programs, setPrograms] = useState([]);
   const [logs, setLogs] = useState([]);
   const [sessionView, setSessionView] = useState("list");
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
 
   useEffect(() => {
     if (studentId) {
@@ -153,11 +155,19 @@ export default function CoachStudentDetailPage() {
               <span>•</span>
               <span>Taille: <strong className="text-slate-300">{student?.height ? `${student.height} cm` : "N/C"}</strong></span>
             </div>
+            {PERSONAL_RECORD_EXERCISES.some(({ key }) => hasPersonalRecord(student?.personal_records?.[key])) && (
+              <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Records personnels de l’élève">
+                {PERSONAL_RECORD_EXERCISES.filter(({ key }) => hasPersonalRecord(student?.personal_records?.[key])).map((lift) => {
+                  const record = student.personal_records[lift.key];
+                  return <span key={lift.key} className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-2 py-1 text-[10px] text-amber-100"><strong>{lift.label}</strong>{record.weight && ` · ${record.weight} kg`}{record.reps && ` × ${record.reps} reps`}</span>;
+                })}
+              </div>
+            )}
           </div>
         </div>
 
         <Link
-          href={`/coach/new-program?student=${studentId}`}
+          href={`/coach/new-program?student=${studentId}${selectedCalendarDate ? `&date=${selectedCalendarDate}` : ""}`}
           className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
@@ -181,7 +191,7 @@ export default function CoachStudentDetailPage() {
           </div>
         ) : (
           sessionView === "calendar" ? (
-            <SessionCalendar events={calendarEvents} isCoach />
+            <SessionCalendar events={calendarEvents} isCoach onSelectedDateChange={setSelectedCalendarDate} />
           ) : <div className="space-y-4">
             {orderedPrograms.map((prog) => {
               // Récupérer les logs liés à ce programme

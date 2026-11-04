@@ -6,20 +6,23 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { localDateTimeInputValue } from "../../../lib/sessionCalendar";
+import { localDateInputValue } from "../../../lib/sessionCalendar";
+import { findPersonalRecord, hasPersonalRecord, PERSONAL_RECORD_EXERCISES } from "../../../lib/personalRecords";
 
 function NewProgramForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialStudentId = searchParams.get("student");
+  const initialScheduledDate = localDateInputValue(searchParams.get("date"));
 
   const [loading, setLoading] = useState(false);
   const [fetchingStudents, setFetchingStudents] = useState(true);
   const [students, setStudents] = useState([]);
 
   const [title, setTitle] = useState("");
-  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduledDate, setScheduledDate] = useState(initialScheduledDate);
   const [selectedStudentId, setSelectedStudentId] = useState(initialStudentId || "");
+  const [selectedStudentRecords, setSelectedStudentRecords] = useState({});
   const [exercises, setExercises] = useState([
     { name: "", sets: "3", reps: "10", target_weight: "", coach_comment: "" }
   ]);
@@ -49,13 +52,15 @@ function NewProgramForm() {
       if (studentIds.length > 0) {
         const { data: studentProfiles } = await supabase
           .from("profiles")
-          .select("id, full_name, email")
+          .select("id, full_name, email, personal_records")
           .in("id", studentIds)
           .order("full_name", { ascending: true });
 
         setStudents(studentProfiles || []);
-        if (!initialStudentId && studentProfiles && studentProfiles.length > 0) {
-          setSelectedStudentId(studentProfiles[0].id);
+        const initialStudent = studentProfiles?.find((profile) => profile.id === initialStudentId) || studentProfiles?.[0];
+        if (initialStudent) {
+          setSelectedStudentId(initialStudent.id);
+          setSelectedStudentRecords(initialStudent.personal_records || {});
         }
       }
     } catch (err) {
@@ -63,6 +68,11 @@ function NewProgramForm() {
     } finally {
       setFetchingStudents(false);
     }
+  };
+
+  const handleStudentChange = (studentId) => {
+    setSelectedStudentId(studentId);
+    setSelectedStudentRecords(students.find((student) => student.id === studentId)?.personal_records || {});
   };
 
   const handleAddExercise = () => {
@@ -105,7 +115,7 @@ function NewProgramForm() {
           title: title.trim(),
           student_id: selectedStudentId,
           coach_id: user.id,
-          scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+          scheduled_at: scheduledDate ? new Date(`${scheduledDate}T12:00:00`).toISOString() : null,
         })
         .select("id")
         .single();
@@ -178,7 +188,7 @@ function NewProgramForm() {
             </label>
             <select
               value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(e.target.value)}
+              onChange={(e) => handleStudentChange(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
             >
               {students.map((s) => (
@@ -188,6 +198,18 @@ function NewProgramForm() {
               ))}
             </select>
           </div>
+
+          {PERSONAL_RECORD_EXERCISES.some(({ key }) => hasPersonalRecord(selectedStudentRecords[key])) && (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3" aria-label="Records personnels de l’élève">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-amber-300">Records personnels de l’élève</p>
+              <div className="flex flex-wrap gap-1.5">
+                {PERSONAL_RECORD_EXERCISES.filter(({ key }) => hasPersonalRecord(selectedStudentRecords[key])).map((lift) => {
+                  const record = selectedStudentRecords[lift.key];
+                  return <span key={lift.key} className="rounded-lg border border-slate-800 bg-slate-950/70 px-2 py-1 text-[10px] text-slate-200"><strong>{lift.label}</strong>{record.weight && ` · ${record.weight} kg`}{record.reps && ` × ${record.reps} reps`}</span>;
+                })}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
@@ -205,13 +227,14 @@ function NewProgramForm() {
 
           <div>
             <label htmlFor="scheduled-at" className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
-              Date et heure prévues <span className="font-normal normal-case text-slate-500">(facultatif)</span>
+              Date prévue <span className="font-normal normal-case text-slate-500">(facultatif)</span>
             </label>
             <input
               id="scheduled-at"
-              type="datetime-local"
-              value={localDateTimeInputValue(scheduledAt)}
-              onChange={(e) => setScheduledAt(e.target.value)}
+              type="date"
+              value={scheduledDate}
+              onClick={(e) => e.currentTarget.showPicker?.()}
+              onChange={(e) => setScheduledDate(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
             />
             <p className="mt-1.5 text-[11px] text-slate-500">La séance apparaîtra dans l’agenda à cette date.</p>
@@ -234,7 +257,9 @@ function NewProgramForm() {
             </button>
           </div>
 
-          {exercises.map((exo, index) => (
+          {exercises.map((exo, index) => {
+            const personalRecord = findPersonalRecord(exo.name, selectedStudentRecords);
+            return (
             <div
               key={index}
               className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3 relative"
@@ -307,6 +332,12 @@ function NewProgramForm() {
                     onChange={(e) => handleExerciseChange(index, "target_weight", e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
                   />
+                  {personalRecord && (
+                    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                      <span className="text-slate-400">Record : {personalRecord.weight && `${personalRecord.weight} kg`}{personalRecord.weight && personalRecord.reps && " · "}{personalRecord.reps && `${personalRecord.reps} reps`}</span>
+                      {personalRecord.weight && <button type="button" onClick={() => handleExerciseChange(index, "target_weight", String(personalRecord.weight))} className="font-bold text-amber-300 hover:text-amber-200">Utiliser ce poids</button>}
+                    </div>
+                  )}
                 </div>
 
                 <div className="sm:col-span-2">
@@ -324,7 +355,8 @@ function NewProgramForm() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
 
         <button
