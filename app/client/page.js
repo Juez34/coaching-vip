@@ -67,6 +67,7 @@ export default function ClientDashboardPage() {
       title: program.title,
       date: program.scheduled_at,
       kind: "assigned",
+      exercises: program.exercises || [],
       label: "Séance prévue le",
       href: workoutLogs.some((log) => log.program_id === program.id)
         ? `/client/history/${program.id}`
@@ -79,6 +80,7 @@ export default function ClientDashboardPage() {
         title: program?.title || "Séance libre",
         date: log.completed_at || log.created_at,
         kind: "completed",
+        exercises: program?.exercises || [],
         label: "Séance réalisée le",
         href: log.program_id ? `/client/history/${log.program_id}` : "/client",
       };
