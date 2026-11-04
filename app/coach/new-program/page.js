@@ -7,7 +7,7 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { localDateInputValue } from "../../../lib/sessionCalendar";
-import { findPersonalRecord, hasPersonalRecord, PERSONAL_RECORD_EXERCISES } from "../../../lib/personalRecords";
+import { findPersonalRecord, getPersonalRecord, hasPersonalRecord, PERSONAL_RECORD_EXERCISES } from "../../../lib/personalRecords";
 import DatePickerField from "../../../components/DatePickerField";
 
 function NewProgramForm() {
@@ -200,12 +200,12 @@ function NewProgramForm() {
             </select>
           </div>
 
-          {PERSONAL_RECORD_EXERCISES.some(({ key }) => hasPersonalRecord(selectedStudentRecords[key])) && (
+          {PERSONAL_RECORD_EXERCISES.some(({ key }) => hasPersonalRecord(getPersonalRecord(selectedStudentRecords, key))) && (
             <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3" aria-label="Records personnels de l’élève">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-amber-300">Records personnels de l’élève</p>
               <div className="flex flex-wrap gap-1.5">
-                {PERSONAL_RECORD_EXERCISES.filter(({ key }) => hasPersonalRecord(selectedStudentRecords[key])).map((lift) => {
-                  const record = selectedStudentRecords[lift.key];
+                {PERSONAL_RECORD_EXERCISES.filter(({ key }) => hasPersonalRecord(getPersonalRecord(selectedStudentRecords, key))).map((lift) => {
+                  const record = getPersonalRecord(selectedStudentRecords, lift.key);
                   return <span key={lift.key} className="rounded-lg border border-slate-800 bg-slate-950/70 px-2 py-1 text-[10px] text-slate-200"><strong>{lift.label}</strong>{record.weight && ` · ${record.weight} kg`}{record.reps && ` × ${record.reps} reps`}</span>;
                 })}
               </div>
