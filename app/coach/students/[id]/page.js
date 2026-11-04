@@ -18,7 +18,7 @@ export default function CoachStudentDetailPage() {
   const [student, setStudent] = useState(null);
   const [programs, setPrograms] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [sessionView, setSessionView] = useState("list");
+  const [sessionView, setSessionView] = useState("calendar");
   const [selectedCalendarDate, setSelectedCalendarDate] = useState("");
 
   useEffect(() => {
@@ -88,6 +88,7 @@ export default function CoachStudentDetailPage() {
         date: log.completed_at || log.created_at,
         kind: "completed",
         exercises: program?.exercises || [],
+        coachReviewed: log.coach_reviewed,
         log,
         label: "Séance réalisée le",
         href: log.program_id ? `/coach/history/program/${log.program_id}` : `/coach/history/${log.id}`,
@@ -191,7 +192,10 @@ export default function CoachStudentDetailPage() {
           </div>
         ) : (
           sessionView === "calendar" ? (
-            <SessionCalendar events={calendarEvents} isCoach onSelectedDateChange={setSelectedCalendarDate} />
+            <>
+              {programs.length === 0 && logs.length === 0 && <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-400">Aucune séance attribuée à cet élève pour le moment.</div>}
+              <SessionCalendar events={calendarEvents} isCoach onSelectedDateChange={setSelectedCalendarDate} />
+            </>
           ) : <div className="space-y-4">
             {orderedPrograms.map((prog) => {
               // Récupérer les logs liés à ce programme
