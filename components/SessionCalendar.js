@@ -40,7 +40,17 @@ function dateTitle(date, options) {
   return date.toLocaleDateString("fr-FR", options);
 }
 
-function ResultSummary({ log, exercises }) {
+function eventReviewStatus(event) {
+  if (event.kind !== "completed") {
+    return { label: "Prévue", shortLabel: null, color: "amber" };
+  }
+  const reviewed = event.coachReviewed ?? event.log?.coach_reviewed;
+  return reviewed
+    ? { label: "Lue par le coach", shortLabel: "Lue", color: "emerald" }
+    : { label: "À lire par le coach", shortLabel: "À lire", color: "rose" };
+}
+
+function ResultSummary({ log, exercises, reviewColor }) {
   const completed = log.completed_sets || {};
   let rawPerformances = log.actual_performances || [];
   if (typeof rawPerformances === "string") {
@@ -68,8 +78,8 @@ function ResultSummary({ log, exercises }) {
   const completedCount = bestSets.length || Object.values(completed).filter(Boolean).length;
 
   return (
-    <div className="mt-3 rounded-lg border border-emerald-400/15 bg-emerald-400/5 p-2.5" aria-label="Résultats de la séance">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-300">
+    <div className={`mt-3 rounded-lg border p-2.5 ${reviewColor === "rose" ? "border-rose-400/20 bg-rose-400/5" : "border-emerald-400/15 bg-emerald-400/5"}`} aria-label="Résultats de la séance">
+      <p className={`text-[10px] font-bold uppercase tracking-wide ${reviewColor === "rose" ? "text-rose-300" : "text-emerald-300"}`}>
         Résultats · {completedCount}/{totalSets || completedCount} séries
         {duration >= 60 ? ` · ${Math.floor(duration / 60)} min` : duration > 0 ? ` · ${duration} s` : ""}
       </p>
@@ -85,14 +95,15 @@ function ResultSummary({ log, exercises }) {
 
 function SessionCard({ event, isCoach }) {
   const completed = event.kind === "completed";
+  const reviewStatus = eventReviewStatus(event);
   const exercises = event.exercises || [];
   return (
-    <Link href={event.href} className={`block min-w-0 rounded-xl border p-3 transition-colors hover:border-amber-400/50 ${completed ? "border-emerald-400/20 bg-slate-900" : "border-amber-400/20 bg-slate-900"}`}>
+    <Link href={event.href} className={`block min-w-0 rounded-xl border p-3 transition-colors ${reviewStatus.color === "rose" ? "border-rose-400/25 bg-slate-900 hover:border-rose-300/60" : reviewStatus.color === "emerald" ? "border-emerald-400/20 bg-slate-900 hover:border-emerald-300/60" : "border-amber-400/20 bg-slate-900 hover:border-amber-400/50"}`}>
       <div className="flex min-w-0 items-start gap-2">
-        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${completed ? "bg-emerald-400" : "bg-amber-400"}`} />
+        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${reviewStatus.color === "rose" ? "bg-rose-400" : reviewStatus.color === "emerald" ? "bg-emerald-400" : "bg-amber-400"}`} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-bold text-white sm:text-sm">{event.title}</p>
-          <p className={`mt-0.5 text-[10px] font-bold uppercase ${completed ? "text-emerald-400" : "text-amber-300"}`}>{completed ? "Réalisée" : "Prévue"}{completed && event.date && ` · ${new Date(event.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`}</p>
+          <p className={`mt-0.5 text-[10px] font-bold uppercase ${reviewStatus.color === "rose" ? "text-rose-300" : reviewStatus.color === "emerald" ? "text-emerald-400" : "text-amber-300"}`}>{completed ? `Réalisée · ${reviewStatus.label}` : reviewStatus.label}{completed && event.date && ` · ${new Date(event.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`}</p>
         </div>
       </div>
 
@@ -103,7 +114,7 @@ function SessionCard({ event, isCoach }) {
         </div>
       )}
 
-      {isCoach && completed && event.log && <ResultSummary log={event.log} exercises={exercises} />}
+      {isCoach && completed && event.log && <ResultSummary log={event.log} exercises={exercises} reviewColor={reviewStatus.color} />}
     </Link>
   );
 }
@@ -171,7 +182,11 @@ export default function SessionCalendar({ events, isCoach = false, onSelectedDat
             >
               <span className={`self-center font-semibold ${selectedDate === key ? "text-amber-300" : ""}`}>{day.getDate()}</span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                {dayEvents.slice(0, 2).map((event) => <span key={event.id} title={event.title} className={`block w-full truncate rounded px-1 py-0.5 text-[8px] font-semibold leading-tight sm:text-[10px] ${event.kind === "completed" ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-200"}`}>{event.title}</span>)}
+                {dayEvents.slice(0, 2).map((event) => {
+                  const status = eventReviewStatus(event);
+                  const colorClass = status.color === "rose" ? "bg-rose-400/15 text-rose-300" : status.color === "emerald" ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-200";
+                  return <span key={event.id} title={`${event.title} · ${status.label}`} className={`flex w-full min-w-0 items-center justify-between gap-1 rounded px-1 py-0.5 text-[8px] font-semibold leading-tight sm:text-[10px] ${colorClass}`}><span className="min-w-0 truncate">{event.title}</span>{status.shortLabel && <span className="shrink-0">{status.shortLabel}</span>}</span>;
+                })}
                 {dayEvents.length > 2 && <span className="text-center text-[8px] text-slate-400 sm:text-[10px]">+{dayEvents.length - 2}</span>}
               </span>
             </button>
@@ -227,12 +242,11 @@ export default function SessionCalendar({ events, isCoach = false, onSelectedDat
         )}
         {mode === "day" && renderDay(selected)}
 
-        {mode === "month" && (
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-slate-400">
-            <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-400" />Séance prévue</span>
-            <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-400" />Séance réalisée</span>
-          </div>
-        )}
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-slate-400" aria-label="Légende du calendrier">
+          <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-400" />Séance prévue</span>
+          <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-rose-400" />Réalisée · à lire</span>
+          <span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-400" />Réalisée · lue</span>
+        </div>
       </div>
 
       {mode === "month" && (
