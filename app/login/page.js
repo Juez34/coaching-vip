@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { Dumbbell, ArrowRight, Lock, Mail, Phone, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -31,6 +31,19 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const isPasswordRecovery = queryParams.has("code")
+      || queryParams.get("type") === "recovery"
+      || hashParams.get("type") === "recovery"
+      || queryParams.has("error_description")
+      || hashParams.has("error_description");
+    if (isPasswordRecovery) {
+      router.replace(`/reset-password${window.location.search}${window.location.hash}`);
+    }
+  }, [router]);
 
   const handleAuth = async (e) => {
     e.preventDefault();
