@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { localDateTimeInputValue } from "../../../lib/sessionCalendar";
 
 function NewProgramForm() {
   const router = useRouter();
@@ -17,6 +18,7 @@ function NewProgramForm() {
   const [students, setStudents] = useState([]);
 
   const [title, setTitle] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState(initialStudentId || "");
   const [exercises, setExercises] = useState([
     { name: "", sets: "3", reps: "10", target_weight: "", coach_comment: "" }
@@ -102,7 +104,8 @@ function NewProgramForm() {
         .insert({
           title: title.trim(),
           student_id: selectedStudentId,
-          coach_id: user.id
+          coach_id: user.id,
+          scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
         })
         .select("id")
         .single();
@@ -198,6 +201,20 @@ function NewProgramForm() {
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
               required
             />
+          </div>
+
+          <div>
+            <label htmlFor="scheduled-at" className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+              Date et heure prévues <span className="font-normal normal-case text-slate-500">(facultatif)</span>
+            </label>
+            <input
+              id="scheduled-at"
+              type="datetime-local"
+              value={localDateTimeInputValue(scheduledAt)}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400"
+            />
+            <p className="mt-1.5 text-[11px] text-slate-500">La séance apparaîtra dans l’agenda à cette date.</p>
           </div>
         </div>
 

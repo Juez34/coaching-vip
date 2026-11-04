@@ -67,12 +67,12 @@ export default function CoachStudentDetailPage() {
   };
 
   const calendarEvents = [
-    ...programs.map((program) => ({
+    ...programs.filter((program) => program.scheduled_at).map((program) => ({
       id: `program-${program.id}`,
       title: program.title,
-      date: program.created_at,
+      date: program.scheduled_at,
       kind: "assigned",
-      label: "Programme créé le",
+      label: "Séance prévue le",
       href: logs.some((log) => log.program_id === program.id)
         ? `/coach/history/program/${program.id}`
         : `/coach/programs/${program.id}/edit`,
@@ -89,6 +89,11 @@ export default function CoachStudentDetailPage() {
       };
     }),
   ];
+  const orderedPrograms = [...programs].sort((a, b) => {
+    const aDate = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+    const bDate = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+    return aDate - bDate || new Date(b.created_at) - new Date(a.created_at);
+  });
 
   const handleDeleteProgram = async (e, programId) => {
     e.preventDefault();
@@ -175,7 +180,7 @@ export default function CoachStudentDetailPage() {
           sessionView === "calendar" ? (
             <SessionCalendar events={calendarEvents} />
           ) : <div className="space-y-4">
-            {programs.map((prog) => {
+            {orderedPrograms.map((prog) => {
               // Récupérer les logs liés à ce programme
               const programLogs = logs.filter((l) => l.program_id === prog.id);
               const isDone = programLogs.length > 0;
