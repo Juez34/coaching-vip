@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
     setError("");
 
     try {
-      const redirectTo = `${window.location.origin}/reset-password`;
+      const redirectTo = "https://coaching-vip.vercel.app/reset-password";
       const normalizedEmail = email.trim().toLowerCase();
       if (!normalizedEmail) {
         setError("Saisis une adresse e-mail valide.");
